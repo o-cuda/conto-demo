@@ -44,15 +44,13 @@ public class ListaTransazioniVerticle extends AbstractVerticle {
 		JsonObject json = (JsonObject) message.body();
 
 		String indirizzo = json.getString("indirizzo");
-		String httpMethod = json.getString("httpMethod");
 
 		log.info("message.body().\"indirizzo\" = {}", indirizzo);
-		log.info("message.body().\"httpMethod\" = {}", httpMethod);
 
 		WebClient client = WebClient.create(vertx);
 
 		log.debug("richiamo servizio REST ...");
-		client.requestAbs(HttpMethod.valueOf(httpMethod), indirizzo)
+		client.requestAbs(HttpMethod.GET, indirizzo)
 				.putHeader("Content-Type", "application/json")
 				.putHeader("Auth-Schema", "S2S")
 				.putHeader("Api-Key", apiKey)
@@ -76,17 +74,19 @@ public class ListaTransazioniVerticle extends AbstractVerticle {
 							
 						log.info("bodyAsString: {}", bodyAsString);
 						
-						TransactionDto balance = null;
+						TransactionDto transaction = null;
 						ObjectMapper mapper = new ObjectMapper();
+						String listaTransazioni = null;
 						try {
-							balance = mapper.readValue(bodyAsString, TransactionDto.class);
+							transaction = mapper.readValue(bodyAsString, TransactionDto.class);
+							listaTransazioni = mapper.writeValueAsString(transaction.getPayload().getList());
 						} catch (JsonProcessingException e) {
 							log.error("error in json parsing", e);
 							message.fail(1, "error in json parsing");
 							return;
 						}
 						
-						message.reply(bodyAsString);
+						message.reply(listaTransazioni);
 						
 					} else {
 						String messaggio = String.format("Impossibile effettuare la chiamata al servizio, forse e' down: %s", ar.cause().getMessage());

@@ -2,24 +2,23 @@
 --- **********     CONFIGURAZIONI                 **********
 --- ********************************************************
  
-INSERT INTO CONTO_CONFIGURATION (OPERATION, MESSAGE_IN, MESSAGE_OUT_FROM_BUS) 
+INSERT INTO CONTO_CONFIGURATION (OPERATION, MESSAGE_IN, MESSAGE_OUT_BUS) 
 VALUES (
 	'SAL',
 	'OPERAZIONE=3;account-number=20;', 
 	'saldo_bus'
 );
 
-INSERT INTO CONTO_CONFIGURATION (OPERATION, MESSAGE_IN, MESSAGE_OUT_FROM_BUS) 
+INSERT INTO CONTO_CONFIGURATION (OPERATION, MESSAGE_IN, MESSAGE_OUT_BUS) 
 VALUES (
 	'LIS',
 	'OPERAZIONE=3;account-number=20;start-date=10;end-date=10;', 
 	'lista_bus'
 );
 
-INSERT INTO CONTO_CONFIGURATION (OPERATION, MESSAGE_IN, MESSAGE_OUT_FROM_BUS) 
+INSERT INTO CONTO_CONFIGURATION (OPERATION, MESSAGE_IN, MESSAGE_OUT_BUS) 
 VALUES (
-	'BON', 
-	'OPERAZIONE=3;account-number=20;creditor-name=50;accountCode=27;bicCode=11;description=500;amount=NUM20;currency=3;feeType=3;feeAccountId=8;taxReliefId=4;isCondoUpgrade=5;creditorFiscalCode=11;beneficiaryType=20;fiscalCode=16', 
+	'BON', 	'OPERAZIONE=3;account-number=20;creditor-name=50;accountCode=27;bicCode=11;description=500;amount=NUM20;currency=3;feeType=3;feeAccountId=8;taxReliefId=4;isCondoUpgrade=5;creditorFiscalCode=11;beneficiaryType=20;fiscalCode=16', 
 	'bonifico_bus'
 );
 
@@ -28,17 +27,17 @@ VALUES (
 --- ********************************************************
 
 
-INSERT INTO CONTO_INDIRIZZI (OPERATION, AMBIENTE, INDIRIZZO, HTTP_METHOD) 
+INSERT INTO CONTO_INDIRIZZI (OPERATION, AMBIENTE, INDIRIZZO) 
 VALUES 
-	('SAL', 'SVIL', 'https://sandbox.platfr.io/api/gbs/banking/v4.0/accounts/{account-number}/balance', 'GET'),
-	('SAL', 'PRE-PROD', 'N.D.', 'GET'),
-	('SAL', 'PROD', 'N.D.', 'GET');
+	('SAL', 'SVIL', 'https://sandbox.platfr.io/api/gbs/banking/v4.0/accounts/{account-number}/balance'),
+	('SAL', 'PRE-PROD', 'N.D.'),
+	('SAL', 'PROD', 'N.D.');
 
-INSERT INTO CONTO_INDIRIZZI (OPERATION, AMBIENTE, INDIRIZZO, HTTP_METHOD) 
+INSERT INTO CONTO_INDIRIZZI (OPERATION, AMBIENTE, INDIRIZZO) 
 VALUES 
-	('LIS', 'SVIL', 'https://sandbox.platfr.io/api/gbs/banking/v4.0/accounts/{account-number}/transactions?fromAccountingDate={start-date}&toAccountingDate={end-date}', 'GET'),
-	('LIS', 'PRE-PROD', 'N.D.', 'GET'),
-	('LIS', 'PROD', 'N.D.', 'GET');
+	('LIS', 'SVIL', 'https://sandbox.platfr.io/api/gbs/banking/v4.0/accounts/{account-number}/transactions?fromAccountingDate={start-date}&toAccountingDate={end-date}'),
+	('LIS', 'PRE-PROD', 'N.D.'),
+	('LIS', 'PROD', 'N.D.');
 
 INSERT INTO CONTO_INDIRIZZI (OPERATION, AMBIENTE, INDIRIZZO) 
 VALUES 

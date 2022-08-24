@@ -4,7 +4,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -22,10 +21,10 @@ import it.demo.fabrick.exception.ExceptionMessageIn;
 import it.demo.fabrick.utils.Constants;
 
 @Component
-public class GestisciChiamataVerticle extends AbstractVerticle {
+public class GestisciRequestVerticle extends AbstractVerticle {
 
 	private static final String REGEX_URL_PARAMETER = "(\\{.+?\\})";
-	private static Logger log = LoggerFactory.getLogger(GestisciChiamataVerticle.class);
+	private static Logger log = LoggerFactory.getLogger(GestisciRequestVerticle.class);
 
 	@Override
 	public void start(io.vertx.core.Promise<Void> startFuture) throws Exception {
@@ -44,6 +43,7 @@ public class GestisciChiamataVerticle extends AbstractVerticle {
 
 		Object body = message.body();
 		log.trace("1 received message.body() = {}", body);
+		
 
 		String messageIn = body.toString();
 		String operazioneInEntrata = messageIn.substring(0, 3);
@@ -98,7 +98,6 @@ public class GestisciChiamataVerticle extends AbstractVerticle {
 		
 		String indirizzo = sovrascriviChiaviSullIndirizzo(mappaMessageIn, configurazione.getIndirizzo());
 		json.put("indirizzo", indirizzo);
-		json.put("httpMethod", configurazione.getHttpMethod());
 		json.put("mappaMessageIn", mappaMessageIn);
 
 		vertx.eventBus().request(configurazione.getMessageOutFromBus(), json, ContoDemoApplication.getDefaultDeliverOptions(), asyncResult -> {
@@ -219,9 +218,8 @@ public class GestisciChiamataVerticle extends AbstractVerticle {
 				}
 
 			} catch (StringIndexOutOfBoundsException e) {
-				UUID uuid = UUID. randomUUID();
-				log.error("Exception [{}] UUID [{}] message [{}]", e.getMessage(), uuid, messageInInput);
-				throw new ExceptionMessageIn(uuid);
+				log.error("Exception message [" + messageInInput + "]", e);
+				throw new ExceptionMessageIn();
 			}
 
 			mappaMessageIn.put(key, substring);

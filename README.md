@@ -1,4 +1,4 @@
-### Breve descrizione
+### BREVE INTRODUZIONE
 
 Applicazione di Test che si basa su alcune API di Fabrick.
 Siccome tra i requisiti non era richiesta un FE di esposizione del dato, ho preso spunto da una applicazione fatta da me che veniva usata per gestire la comunicazione via messaggi in plain string, con i vari campi posizionali in input, attraverso un socket TCP, e restituisce sempre un messaggio di testo
@@ -12,7 +12,7 @@ Per i test occorre far partire l'applicazione:
 	- il server socket di vertx parte sulla 9221
 	- lancio manuale dei TEST come "programma java", sono dei main semplici che scrivono il messaggio aprendo un client socket
 	
-Passo successivo sara' vare a capire se si possono rendere automatico con una sorta di avvio propedeuto dell'accplicazione in modo da poterli renderli automatici su maven e mockando le API di fabrick
+Passo successivo sara' vare a capire se si possono rendere automatiche con una sorta di avvio preventivo dell'applicazione in modo da poterli renderli automatici su maven eventualmente mockando le API di fabrick
 
 Per quanto riguarda il DB, al momento  è prese sente ma non l'ho usato per la scrittura su DB dei movimenti, lo vorrei fare in un secondo step.
 Il db per poterlo fare è presente, è un H2 che parte in memory, ed è usato per la lettura delle configurazioni dei messaggi che arrivano sul socket.
@@ -21,7 +21,7 @@ In pratica i primi 3 caratteri che arrivano sul messaggio identificano l'OPERAZI
 - BON: effettuare il bonifico
 - SAL: per la visualizzazione del SALDO
 
-## descrizione architettura
+## DESCRIZIONE ARCHITETTURA
 
 L'applicazione è un microservizio unico. All'interno della compilazione è anche presente la compilazione di una immagine docker (non l'ho provata direttamente al momento perchè non ho un docker instalato a portata di mano, ma dovrebbe funzionare correttamente, immagine base usata una OpenJDK Amazon Corretto ultima versione 17.0.4-alpine3.15)
 
@@ -35,6 +35,37 @@ Questo perchè i JDBC normali bloccano i thread, mentre questo di vertx è asinc
 
 Il DB H2 è solo in memoria, quindi le eventuali scritture vanno per perse ogni volta si riavvia l'applicazione, ma tanto questa è una app banco di prova e ne sono conscio
 Se si volesse mettere un DB vero, per quanto riguarda le configurazioni le si probbero semplicemente mettere in cache (il primo modo che mi viene in mente sarebbe usare la [Cache di Spring](https://spring.io/guides/gs/caching/))
-## analisi sul come funziona
 
+L'application.properties utilizzato si trova solo config-map/local. 
+Si trova li semplicemente perchè questa applicazione in teoria si potrebbe adattare ad un kubernetes multiambiente, dove gli application properties devono essere diversi perchè ogni ambiente ha il suo specifico.
+Quindi nella classe Main ContoDemoApplication c'è una annotation PropertiesSource che prende come default /data/application.properties (o qualsiasi altro default utilizzato nel proprio cluster Kubernets) mentre per lo sviluppo locale bisogna andare a valorizzare la variabile applicationPropertiesPath come vmArgs e mettendo la propria location del file.
+Es. se si usa Windows: -DapplicationPropertiesPath="file:C:\Workspace\conto-demo\config-map\local\application.properties"
+
+
+## COME FUNZIONA 
+
+In questo caso l'applicazione start un server che apre sulla porta 9221 un server socket
+I messaggi devono essere inviati come una string dove:
+- i primi tre caratteri identificano l'applicazione
+    - LIS per lista transazioni
+    - BON per effettuare il bonifico
+    - SAL per la visualizzazione del saldo
+  
+Il messagio recuperato dal socket e dato al verticle "GestisciRequestVerticle".
+Il primo passo eseguito è legge la configurazione atraverso i primi tre caratteri passandoli al verticle "ConfigVerticle" che si occupa di verificare recuperare dall'in-memory DB la configurazione da leggere.
+La confgigurazione si può trovare dentro al file data.sql che viene caricato all'avvio dell'applicazione (lo schema delle tabelle è schema.sql)
+"GestisciRequestVerticle" recupera dalla configurazione su quale event bus deve mandare la request e viene invocato così l'ultimo verticle in maniera dinamica:
+- LIS al lista_bus -> ListaTransazioniVerticle
+- BON al bonifico_bus -> BonificoVerticle
+- SAL al saldo_bus -> SaldoVerticle
  
+Ognuno di questi verticle richiama le API Fabrick
+N.B. Per BON:
+- non è stato effettuato alcun controllo sui decimali sull'amount, ma al momento non so quanti decimali massimi si dovrebbero avere
+- l'executionDate l'ho impostato sempre a data odierna
+- alcuni campi nella request li ho messi come costanti, altri sono dinamici ed arrivano in input al server socket
+ 
+ Le risposte sono sempre delle plain string ed iniziano sempre con 0 se è tutto corretto più l'eventuale messaggio, oppure con 1 se c'è stato un errore
+ In caso di errore viene riportato in prima battuta l'UUID che identifica la richiesta, e poi il messaggio di errore (fabrick o intero allìapplicazione).
+ La decisione di mettere l'UUID è stata presa per visualizzare in maniera rapida i log 
+  

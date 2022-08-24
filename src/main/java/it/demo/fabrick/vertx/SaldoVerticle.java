@@ -44,15 +44,13 @@ public class SaldoVerticle extends AbstractVerticle {
 		JsonObject json = (JsonObject) message.body();
 
 		String indirizzo = json.getString("indirizzo");
-		String httpMethod = json.getString("httpMethod");
 
 		log.info("message.body().\"indirizzo\" = {}", indirizzo);
-		log.info("message.body().\"httpMethod\" = {}", httpMethod);
 
 		WebClient client = WebClient.create(vertx);
 
 		log.debug("richiamo servizio REST ...");
-		client.requestAbs(HttpMethod.valueOf(httpMethod), indirizzo)
+		client.requestAbs(HttpMethod.GET, indirizzo)
 				.putHeader("Content-Type", "application/json")
 				.putHeader("Auth-Schema", "S2S")
 				.putHeader("Api-Key", apiKey)

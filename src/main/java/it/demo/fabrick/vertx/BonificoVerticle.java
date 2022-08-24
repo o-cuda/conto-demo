@@ -47,14 +47,10 @@ public class BonificoVerticle extends AbstractVerticle {
 		JsonObject json = (JsonObject) message.body();
 
 		String indirizzo = json.getString("indirizzo");
-		String httpMethod = json.getString("httpMethod");
 		JsonObject mappaMessageIn = json.getJsonObject("mappaMessageIn");
 
 		log.info("message.body().\"indirizzo\" = {}", indirizzo);
-		log.info("message.body().\"httpMethod\" = {}", httpMethod);
 		log.info("message.body().\"mappaMessageIn\" = {}", mappaMessageIn);
-
-
 
 		WebClient client = WebClient.create(vertx);
 		
@@ -72,7 +68,7 @@ public class BonificoVerticle extends AbstractVerticle {
 		}
 
 		log.debug("richiamo servizio REST ...");
-		client.requestAbs(HttpMethod.valueOf(httpMethod), indirizzo)
+		client.requestAbs(HttpMethod.POST, indirizzo)
 				.putHeader("Content-Type", "application/json")
 				.putHeader("Auth-Schema", "S2S")
 				.putHeader("Api-Key", apiKey)

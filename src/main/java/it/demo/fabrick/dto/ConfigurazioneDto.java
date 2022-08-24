@@ -13,7 +13,6 @@ public class ConfigurazioneDto {
 	private String messageIn = null;
 	private String messageOutFromBus = null;
 	private String indirizzo = null;
-	private String httpMethod = null;
 	
 	public ConfigurazioneDto(JsonArray line) {
 
@@ -22,7 +21,6 @@ public class ConfigurazioneDto {
 		this.setMessageIn(line.getString(2));
 		this.setMessageOutFromBus(line.getString(3));
 		this.setIndirizzo(line.getString(4));
-		this.setHttpMethod(line.getString(5));
 	}
 
 	public JsonArray toJsonArray() {
@@ -34,7 +32,6 @@ public class ConfigurazioneDto {
 		json.add(messageIn);
 		json.add(messageOutFromBus);
 		json.add(indirizzo);
-		json.add(httpMethod);
 
 		return json;
 	}

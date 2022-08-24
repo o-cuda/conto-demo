@@ -4,8 +4,6 @@ import java.util.List;
 
 import javax.annotation.PostConstruct;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
@@ -19,14 +17,14 @@ import io.vertx.core.Verticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.eventbus.DeliveryOptions;
+import lombok.extern.slf4j.Slf4j;
 
-@PropertySource("${appProp:file:/data/application.properties}")
+@PropertySource("${applicationPropertiesPath:file:/data/application.properties}")
 @SpringBootApplication
 @EnableWebSecurity
 @ComponentScan(basePackages = "it.demo.fabrick")
+@Slf4j
 public class ContoDemoApplication {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(ContoDemoApplication.class);
 
     @Autowired
 	private List<Verticle> verticleList;
@@ -54,17 +52,13 @@ public class ContoDemoApplication {
 			vertx.deployVerticle(verticle);
 		});
 
-        // stessa cosa di sopra ma con le lambda
-//		vertx.deployVerticle(socketServerVerticle, stringAsyncResult -> {
-//			System.out.println("socketServerVerticle deployment complete");
-//		});
         // per fare in modo che quando venga chiuso SpringBoot, venga chiuso anche il contesto vert.x e tutti i verticle
         // deplotati altrimenti rimangono attivi
         Runtime.getRuntime().addShutdownHook(new Thread() {
 
             @Override
             public void run() {
-                LOGGER.info("shutdown");
+				log.info("shutdown");
                 vertx.deploymentIDs().forEach(vertx::undeploy);
                 vertx.close();
             }

@@ -1,4 +1,5 @@
 package it.demo.fabrick.vertx;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,9 +13,9 @@ import io.vertx.ext.jdbc.JDBCClient;
 import io.vertx.ext.sql.SQLConnection;
 
 @Component
-public class ConfigurazioneDaoVerticle extends AbstractVerticle {
+public class ConfigVerticle extends AbstractVerticle {
 
-	private static Logger log = LoggerFactory.getLogger(ConfigurazioneDaoVerticle.class);
+	private static Logger log = LoggerFactory.getLogger(ConfigVerticle.class);
 
 	@Value("${amb.lavoro:SVIL}")
 	private String ambiente;
@@ -28,13 +29,12 @@ public class ConfigurazioneDaoVerticle extends AbstractVerticle {
 	private JDBCClient client = null;
 
 	//@f:off
-	private static final String query = " select "
+	private static final String QUERY = " select "
 						+ "      con.OPERATION, " 
 						+ "      ind.AMBIENTE, "  
 						+ "      con.MESSAGE_IN, "  
-						+ "      con.MESSAGE_OUT_FROM_BUS," 
+						+ "      con.MESSAGE_OUT_BUS," 
 						+ "      ind.INDIRIZZO, " 
-						+ "      ind.HTTP_METHOD,  " 
 						+ " from CONTO_CONFIGURATION con" 
 						+ " inner join CONTO_INDIRIZZI ind on (con.OPERATION = ind.OPERATION)"
 						+ " where ind.OPERATION = ? and ind.AMBIENTE = ? ";
@@ -80,7 +80,7 @@ public class ConfigurazioneDaoVerticle extends AbstractVerticle {
 			final SQLConnection connection = conn.result();
 
 			log.trace("queryWithParams: operazione[{}], ambiente[{}]", operazioneInEntrata, ambiente);
-			connection.queryWithParams(query, new JsonArray().add(operazioneInEntrata).add(ambiente), rs -> {
+			connection.queryWithParams(QUERY, new JsonArray().add(operazioneInEntrata).add(ambiente), rs -> {
 
 				if (rs.failed()) {
 					String errorMessage = "Cannot retrieve the data from the database";

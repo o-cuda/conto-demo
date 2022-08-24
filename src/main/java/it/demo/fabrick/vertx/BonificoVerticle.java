@@ -1,5 +1,7 @@
 package it.demo.fabrick.vertx;
 
+import java.text.ParseException;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -52,16 +54,17 @@ public class BonificoVerticle extends AbstractVerticle {
 		log.info("message.body().\"httpMethod\" = {}", httpMethod);
 		log.info("message.body().\"mappaMessageIn\" = {}", mappaMessageIn);
 
-		BonificoRequestDto request = new BonificoRequestDto(mappaMessageIn);
+
 
 		WebClient client = WebClient.create(vertx);
 		
 		String requestString = null;
 		ObjectMapper mapper = new ObjectMapper();
 		try {
+			BonificoRequestDto request = new BonificoRequestDto(mappaMessageIn);
 			requestString = mapper.writeValueAsString(request);
 			log.debug("requestString: {}", requestString);
-		} catch (JsonProcessingException e1) {
+		} catch (JsonProcessingException | ParseException e1) {
 			String messaggio = "Errore parse della request";
 			log.error(messaggio, e1);
 			message.fail(1, messaggio);

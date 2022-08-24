@@ -1,6 +1,6 @@
 package it.demo.fabrick.vertx.client;
 
-public class TestBON {
+public class TestBONAmauntUnDecimale {
 
 	private static final int port = 9221;
 
@@ -20,7 +20,7 @@ public class TestBON {
 			sOut.append("IT23A0336844430152923804660");
 			sOut.append("SELBIT2BXXX");
 			sOut.append(padLeft("Payment invoice 75/2017", 500));
-			sOut.append(padLeft("10", 20));
+			sOut.append(padLeft("10.1", 20));
 			sOut.append("EUR");
 			sOut.append("SHA");
 			sOut.append("45685475");

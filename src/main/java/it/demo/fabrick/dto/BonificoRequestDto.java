@@ -1,5 +1,10 @@
 package it.demo.fabrick.dto;
 
+import java.text.NumberFormat;
+import java.text.ParseException;
+import java.time.LocalDate;
+import java.util.Locale;
+
 import io.vertx.core.json.JsonObject;
 import lombok.Data;
 
@@ -10,7 +15,7 @@ public class BonificoRequestDto {
 	public String executionDate;
 	public String uri;
 	public String description;
-	public long amount;
+	public double amount;
 	public String currency;
 	public boolean isUrgent;
 	public boolean isInstant;
@@ -18,7 +23,7 @@ public class BonificoRequestDto {
 	public String feeAccountId;
 	public TaxRelief taxRelief;
 
-	public BonificoRequestDto(JsonObject messageIn) {
+	public BonificoRequestDto(JsonObject messageIn) throws ParseException {
 		this.creditor = new Creditor();
 		creditor.setName(messageIn.getString("creditor-name"));
 		creditor.setAccount(new Account());
@@ -26,11 +31,13 @@ public class BonificoRequestDto {
 		creditor.getAccount().setAccountCode(messageIn.getString("accountCode"));
 		creditor.getAccount().setBicCode(messageIn.getString("bicCode"));
 
-		// todo mettere formatter della data odierna
-		executionDate = "2022-08-24";
+		LocalDate today = LocalDate.now();
+		executionDate = today.toString();
 		uri = "REMITTANCE_INFORMATION";
 		description = messageIn.getString("description");
-		amount = Long.valueOf(messageIn.getString("amount"));
+		NumberFormat format = NumberFormat.getInstance(Locale.US);
+		Number value = format.parse(messageIn.getString("amount"));
+		amount = value.doubleValue();
 		currency = messageIn.getString("currency");
 		isUrgent = false;
 		isInstant = false;

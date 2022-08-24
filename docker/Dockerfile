@@ -1,4 +1,4 @@
-FROM amazoncorretto:11
+FROM amazoncorretto:17.0.4-alpine3.15
 WORKDIR /tmp
 ADD conto-demo.jar /tmp/conto-demo.jar
 

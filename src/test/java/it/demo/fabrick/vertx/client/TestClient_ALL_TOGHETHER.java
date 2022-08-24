@@ -10,7 +10,7 @@ public class TestClient_ALL_TOGHETHER {
 
 			TestSAL.main(myArgs);
 			TestLIS.main(myArgs);
-			TestBON.main(myArgs);
+			TestBONAmauntIntero.main(myArgs);
 		}
 
 	}

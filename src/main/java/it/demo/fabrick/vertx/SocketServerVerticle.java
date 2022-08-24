@@ -1,16 +1,16 @@
 package it.demo.fabrick.vertx;
 
+import java.util.UUID;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import io.reactiverse.contextual.logging.ContextualData;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.net.NetServer;
 import io.vertx.core.net.NetServerOptions;
 import it.demo.fabrick.ContoDemoApplication;
-import io.reactiverse.contextual.logging.ContextualData;
-
-import java.util.UUID;
 
 @Component
 public class SocketServerVerticle extends AbstractVerticle {
@@ -35,20 +35,21 @@ public class SocketServerVerticle extends AbstractVerticle {
 			socket.handler(bufferIn -> {
 				String requestId = UUID.randomUUID().toString();
 				ContextualData.put("requestId", requestId);
-				String cobolInMessage = bufferIn.toString(CHARSET);
-				log.info("cobolInMessage: [{}]", cobolInMessage);
+				String messageInMessage = bufferIn.toString(CHARSET);
+				log.info("messageInMessage: [{}]", messageInMessage);
 
-				vertx.eventBus().request("gestisci-chiamata-bus", cobolInMessage, ContoDemoApplication.getDefaultDeliverOptions(), asyncResult -> {
+				vertx.eventBus().request("gestisci-chiamata-bus", messageInMessage,
+						ContoDemoApplication.getDefaultDeliverOptions(), asyncResult -> {
 
 					if (asyncResult.succeeded()) {
 
-						String cobolOut = (String) asyncResult.result().body();
-						log.info("cobolOut: {}", cobolOut);
+								String messageOut = (String) asyncResult.result().body();
+								log.info("messageOut: {}", messageOut);
 
 						int stringLen = 500;
 
 						// String stringCallBack = conv;
-						String stringOut = "0" + cobolOut;
+								String stringOut = "0" + messageOut;
 						String stringFill = String.format("%-" + (stringLen) + "s", stringOut);
 
 						socket.write(stringFill, CHARSET);

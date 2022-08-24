@@ -14,7 +14,6 @@ import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClient;
-import it.demo.fabrick.dto.BalanceDto;
 import it.demo.fabrick.dto.BonificoRequestDto;
 import it.demo.fabrick.dto.ErrorDto;
 import lombok.extern.slf4j.Slf4j;
@@ -95,30 +94,23 @@ public class BonificoVerticle extends AbstractVerticle {
 								return;
 							}
 
-							log.error(errore.toString());
-							message.fail(1, errore.toString());
+							StringBuilder builder = new StringBuilder();
+							errore.getErrors().stream().forEach(anError -> {
+								builder.append("code: ").append(anError.getCode()).append(", description:")
+										.append(anError.getDescription()).append(",");
+							});
+
+							String messaggioDiErrore = builder.toString();
+							messaggioDiErrore = messaggioDiErrore.substring(0, messaggioDiErrore.length() - 1);
+							log.error(messaggioDiErrore);
+							message.fail(1, messaggioDiErrore);
 							return;
 						} 
 							
 						log.info("bodyAsString: {}", bodyAsString);
 						
-						BalanceDto balance = null;
-						try {
-							balance = mapper.readValue(bodyAsString, BalanceDto.class);
-						} catch (JsonProcessingException e) {
-							log.error("error in json parsing", e);
-							message.fail(1, "error in json parsing");
-							return;
-						}
-						
-						StringBuilder finaResponse = new StringBuilder();
-						finaResponse.append("balance: ")
-								.append(balance.getPayload().getBalance()).append(" ")
-								.append(balance.getPayload().getCurrency())
-								.append(", availableBalance: ").append(balance.getPayload().getAvailableBalance())
-								.append(" ").append(balance.getPayload().getCurrency());
-						
-						message.reply(finaResponse.toString());
+						// FIXME not to do
+						message.reply("TODO");
 						
 					} else {
 						String messaggio = String.format("Impossibile effettuare la chiamata al servizio, forse e' down: %s", ar.cause().getMessage());

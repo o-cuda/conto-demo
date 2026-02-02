@@ -17,5 +17,5 @@
 	<logger name="com.ibm.ws.webcontainer.servlet" level="INFO" />
 	<logger name="org.apache.solr.client.solrj" level="INFO" />
 	<logger name="org.springframework.beans.factory.annotation" level="INFO" />
-	<logger name="javax.servlet" level="ERROR" />
+	<logger name="jakarta.servlet" level="ERROR" />
 </included>

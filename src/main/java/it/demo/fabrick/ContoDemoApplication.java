@@ -67,7 +67,7 @@ public class ContoDemoApplication {
     }
 
     public static DeliveryOptions getDefaultDeliverOptions(){
-        return new DeliveryOptions().setSendTimeout(10000);
+        return new DeliveryOptions().setSendTimeout(120000);
     }
 
     private void configureInterceptor(Vertx vertx) {

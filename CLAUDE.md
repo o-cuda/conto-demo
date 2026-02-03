@@ -89,6 +89,33 @@ The application is designed for multi-environment Kubernetes deployments:
 
 Override with `-DapplicationPropertiesPath` VM argument.
 
+**Required Properties:**
+- `fabrick.apiKey` - API key for Fabrick API authentication
+- `fabrick.baseUrl` - Base URL for Fabrick API (default: `https://sandbox.platfr.io/api/gbs/banking/v4.0`)
+
+### Money Transfer Validation Enquiry
+
+The `BonificoVerticle` implements a validation enquiry mechanism to handle ambiguous error responses from money transfers:
+
+**Behavior:**
+- When the Fabrick API returns HTTP 500 or 504 errors, the service MAY have executed the transfer
+- The verticle automatically performs a validation enquiry by searching the transactions list
+- It searches for a transaction matching: amount, currency, and description
+- Based on the search results, it determines whether the transfer was executed
+
+**Timeout Configuration:**
+- Money transfer requests use a 120-second timeout (more than the 100 seconds recommended by Fabrick)
+- Validation enquiry requests use a 30-second timeout
+
+**Response Messages:**
+| Scenario | Response |
+|----------|----------|
+| Matching transaction found | `"Transfer executed - Transaction ID: {id}"` |
+| No matching transaction | `"Transfer not executed. You may safely retry."` |
+| Validation enquiry failed | `"Transfer execution uncertain - validation enquiry failed. Please manually check before retrying."` |
+
+See: `BonificoVerticle.java:94-224`, `TransactionValidationUtil.java`
+
 ## Testing
 
 The project has two types of tests:
@@ -107,11 +134,13 @@ mvn test -Dtest="MessageParserUtilTest"
 
 **Unit Test Structure:**
 - `unit/utils/MessageParserUtilTest.java` - Tests for message parsing logic (NULLIFEMPTY, NOTRIM, URL parameter substitution)
+- `unit/utils/TransactionValidationUtilTest.java` - Tests for transaction matching logic (validation enquiry)
 - `unit/verticle/` - Verticle initialization and event bus subscription tests
   - `GestisciRequestVerticleTest.java`
   - `SocketServerVerticleTest.java`
   - `ListaTransazioniVerticleTest.java`
   - `SaldoVerticleTest.java`
+  - `BonificoVerticleTest.java`
 - `unit/dto/DtoSerializationTest.java` - Jackson JSON serialization tests
 - `unit/testutil/VerticleTestUtils.java` - Shared test utilities
 
@@ -135,6 +164,7 @@ To improve testability, some logic was extracted from Verticles into utility cla
 
 - `MessageParserUtil.java` - Contains message parsing, configuration parsing, and URL substitution logic (extracted from `GestisciRequestVerticle`)
 - `SocketResponseFormatter.java` - Contains response formatting logic for socket responses (extracted from `SocketServerVerticle`)
+- `TransactionValidationUtil.java` - Contains transaction matching logic for validation enquiry (extracted from `BonificoVerticle`)
 
 ## Code Conventions
 
@@ -173,10 +203,42 @@ Upgraded from Spring Boot 2.7.2 / Java 8 / Vert.x 4.2.1 to modern versions:
 **Compatibility Notes:**
 - Lombok version is now managed by Spring Boot 3 parent POM
 - Application requires Java 21+ to compile and run
-- All 29 unit tests pass successfully
+- All 43 unit tests pass successfully (including 14 new tests for validation enquiry)
 
 **Files Modified During Upgrade:**
 - `pom.xml` - Spring Boot parent, Java version, Vert.x version, compiler plugin
 - `src/main/java/it/demo/fabrick/ContoDemoApplication.java` - Jakarta import
 - `src/main/java/it/demo/fabrick/ActuatorSecurity.java` - Complete Spring Security 6 rewrite
 - `src/main/resources/logging-extend.xml` - Jakarta namespace
+
+### Money Transfer Validation Enquiry (February 2025)
+
+Added validation enquiry behavior for money transfers to handle HTTP 500/504 errors as recommended by Fabrick API documentation.
+
+**Major Changes:**
+- **Timeout**: Added 120-second timeout to money transfer requests (exceeds Fabrick's recommended 100 seconds)
+- **Validation Enquiry**: Implemented automatic validation enquiry when receiving HTTP 500 or 504 errors
+- **Transaction Search**: Searches transactions list by amount, currency, and description to determine if transfer executed
+- **Utility Class**: Extracted `TransactionValidationUtil` for better testability
+
+**New Features:**
+- When money transfer fails with HTTP 500/504, automatically queries transactions list
+- Matches transactions by amount, currency, and description
+- Returns appropriate response based on whether matching transaction was found
+- Prevents duplicate transfers by advising user whether retry is safe
+
+**Configuration:**
+- Added `fabrick.baseUrl` property to `application.properties`
+
+**Tests Added:**
+- `TransactionValidationUtilTest.java` - 9 tests for transaction matching logic
+- `BonificoVerticleTest.java` - 5 tests for verticle initialization and configuration
+
+**Files Added:**
+- `src/main/java/it/demo/fabrick/utils/TransactionValidationUtil.java`
+- `src/test/java/it/demo/fabrick/unit/utils/TransactionValidationUtilTest.java`
+- `src/test/java/it/demo/fabrick/unit/verticle/BonificoVerticleTest.java`
+
+**Files Modified:**
+- `src/main/java/it/demo/fabrick/vertx/BonificoVerticle.java` - Added timeout, validation enquiry logic
+- `config-map/local/application.properties` - Added `fabrick.baseUrl`

@@ -23,12 +23,6 @@ public class TestBONAmauntDueDecimali {
 			sOut.append(padLeft("10.11", 20));
 			sOut.append("EUR");
 			sOut.append("SHA");
-			sOut.append("45685475");
-			sOut.append("L449");
-			sOut.append("false");
-			sOut.append("56258745832");
-			sOut.append(padLeft("NATURAL_PERSON", 20));
-			sOut.append("MRLFNC81L04A859L");
 
 			sOut.append("END-OF-BUFFER");
 

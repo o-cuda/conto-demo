@@ -5,7 +5,7 @@ Siccome tra i requisiti non era richiesta un FE di esposizione del dato, ho pres
 
 L'applicazione si basa su SpringBoot + Vert-x rendeno l'applicazione reattiva
 
-Sono presenti dei test automatici e sono presenti anche test di integrazione (in generale preferisco porre attenzione quando possibile a quelli di integrazione)
+Sono presenti dei test automatici e sono presenti anche test di integrazione
 
 Per i test di integrazione occorre far partire l'applicazione:
     - mvn spring-boot:run -Dspring-boot.run.jvmArguments="-DapplicationPropertiesPath=file:/path/to/conto-demo/config-map/local/application.properties"
@@ -59,10 +59,11 @@ La confgigurazione si può trovare dentro al file data.sql che viene caricato al
 - SAL al saldo_bus -> SaldoVerticle
  
 Ognuno di questi verticle richiama le API Fabrick
-N.B. Per BON:
+N.B. Per BON (Create Money Transfer):
 - non è stato effettuato alcun controllo sui decimali sull'amount, ma al momento non so quanti decimali massimi si dovrebbero avere
 - l'executionDate l'ho impostato sempre a data odierna
 - alcuni campi nella request li ho messi come costanti, altri sono dinamici ed arrivano in input al server socket
+- ho inserito un timeout ampio di 110 ed ho inserito il controllo in caso di errore 500 / 504, dove effettuo una chiamata alla lista delle transazioni odierne per verificare se il bonifico è stato effettuato   
  
  Le risposte sono sempre delle plain string ed iniziano sempre con 0 se è tutto corretto più l'eventuale messaggio, oppure con 1 se c'è stato un errore
  In caso di errore viene riportato in prima battuta l'UUID che identifica la richiesta, e poi il messaggio di errore (messaggio di errore ritornato dalle API di Fabrick o errore interno dell'applicazione).

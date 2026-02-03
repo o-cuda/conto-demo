@@ -18,7 +18,7 @@ VALUES (
 
 INSERT INTO CONTO_CONFIGURATION (OPERATION, MESSAGE_IN, MESSAGE_OUT_BUS) 
 VALUES (
-	'BON', 	'OPERAZIONE=3;account-number=20;creditor-name=50;accountCode=27;bicCode=11;description=500;amount=NUM20;currency=3;feeType=3;feeAccountId=8;taxReliefId=4;isCondoUpgrade=5;creditorFiscalCode=11;beneficiaryType=20;fiscalCode=16', 
+	'BON', 	'OPERAZIONE=3;account-number=20;creditor-name=50;accountCode=27;bicCode=11;description=500;amount=NUM20;currency=3;feeType=3;', 
 	'bonifico_bus'
 );
 

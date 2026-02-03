@@ -43,6 +43,9 @@ public class BonificoRequestDto {
 		isInstant = false;
 		feeType = messageIn.getString("feeType");
 		feeAccountId = messageIn.getString("feeAccountId");
+		if ( feeAccountId != null && feeAccountId.isBlank() ) {
+			feeAccountId = null;
+		}
 
 		taxRelief = new TaxRelief();
 		taxRelief.setTaxReliefId(messageIn.getString("taxReliefId"));

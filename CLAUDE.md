@@ -133,16 +133,18 @@ mvn test -Dtest="MessageParserUtilTest"
 ```
 
 **Unit Test Structure:**
-- `unit/utils/MessageParserUtilTest.java` - Tests for message parsing logic (NULLIFEMPTY, NOTRIM, URL parameter substitution)
-- `unit/utils/TransactionValidationUtilTest.java` - Tests for transaction matching logic (validation enquiry)
+- `unit/utils/MessageParserUtilTest.java` - 19 tests for message parsing logic (NULLIFEMPTY, NOTRIM, URL parameter substitution, input validation)
+- `unit/utils/TransactionValidationUtilTest.java` - 23 tests for transaction matching logic (validation enquiry) and input validation
 - `unit/verticle/` - Verticle initialization and event bus subscription tests
-  - `GestisciRequestVerticleTest.java`
-  - `SocketServerVerticleTest.java`
-  - `ListaTransazioniVerticleTest.java`
-  - `SaldoVerticleTest.java`
-  - `BonificoVerticleTest.java`
-- `unit/dto/DtoSerializationTest.java` - Jackson JSON serialization tests
+  - `GestisciRequestVerticleTest.java` - 1 test
+  - `SocketServerVerticleTest.java` - 1 test
+  - `ListaTransazioniVerticleTest.java` - 2 tests
+  - `SaldoVerticleTest.java` - 2 tests
+  - `BonificoVerticleTest.java` - 5 tests
+- `unit/dto/DtoSerializationTest.java` - 6 tests for Jackson JSON serialization with BigDecimal
 - `unit/testutil/VerticleTestUtils.java` - Shared test utilities
+
+**Total:** 59 unit tests (all passing)
 
 **Key Test Dependencies:**
 - `vertx-junit5` - Vert.x JUnit 5 extension for async testing
@@ -162,9 +164,51 @@ Test classes extend `AbstractTestClient` and are in `src/test/java/it/demo/fabri
 
 To improve testability, some logic was extracted from Verticles into utility classes:
 
-- `MessageParserUtil.java` - Contains message parsing, configuration parsing, and URL substitution logic (extracted from `GestisciRequestVerticle`)
-- `SocketResponseFormatter.java` - Contains response formatting logic for socket responses (extracted from `SocketServerVerticle`)
+- `MessageParserUtil.java` - Contains message parsing, configuration parsing, URL substitution logic, and input validation (extracted from `GestisciRequestVerticle`)
 - `TransactionValidationUtil.java` - Contains transaction matching logic for validation enquiry (extracted from `BonificoVerticle`)
+
+## Code Quality Standards
+
+### Monetary Values
+All monetary values use `BigDecimal` for precision (never `double`):
+- `BonificoRequestDto.amount`
+- `ListaTransactionDto.amount`
+- `BalanceDto.balance` and `BalanceDto.availableBalance`
+
+### Generics
+All collections use proper generics (`List<E>` instead of `ArrayList`):
+- DTOs use `List<Error>` instead of `ArrayList<Error>`
+- This ensures better type safety and flexibility
+
+### JSON Libraries
+The project uses Jackson exclusively - no other JSON libraries (jsoniter, org.json) are present.
+
+### Error Handling
+Structured error handling with semantic error codes:
+- `ErrorCode` enum defines error types (VALIDATION_ERROR, API_ERROR, TIMEOUT_ERROR, PARSE_ERROR, NETWORK_ERROR, CONFIGURATION_ERROR)
+- Error responses include error code, message, requestId, and details
+- All Verticles use `ErrorCode` for consistent error reporting
+
+### Constants
+Hardcoded strings are defined as constants in appropriate classes:
+- `MessageParserUtil`: Operation codes (`OPERATION_LIS`, `OPERATION_SAL`, `OPERATION_BON`), message parsing patterns, validation limits
+- `BonificoRequestDto`: `REMITTANCE_INFORMATION_URI`
+- `ErrorCode`: All error codes and their numeric values
+
+### Input Validation
+All inputs are validated before processing in `MessageParserUtil.validateMoneyTransferRequest()`:
+- **Amount**: Between 0.01 and 999999999.99
+- **Currency**: ISO 4217 format (3 uppercase letters)
+- **Creditor name**: Required, max 140 characters
+- **Description**: Required, max 500 characters
+
+### Logging Standards
+- **DEBUG level**: Detailed debugging information, sensitive data
+- **INFO level**: Important business events, successful operations
+- **WARN level**: Unexpected but recoverable situations
+- **ERROR level**: Errors that prevent operation completion
+- All log messages in English
+- Context included in error logs (creditor name, account ID, etc.)
 
 ## Code Conventions
 
@@ -177,7 +221,6 @@ To improve testability, some logic was extracted from Verticles into utility cla
 ## Known Limitations
 
 - H2 database is in-memory only
-- No decimal validation for transfer amounts
 - Transaction history not persisted to database
 
 ## Version History
@@ -242,3 +285,97 @@ Added validation enquiry behavior for money transfers to handle HTTP 500/504 err
 **Files Modified:**
 - `src/main/java/it/demo/fabrick/vertx/BonificoVerticle.java` - Added timeout, validation enquiry logic
 - `config-map/local/application.properties` - Added `fabrick.baseUrl`
+
+### Code Quality Improvements (February 2025)
+
+Comprehensive code quality improvements addressing error handling, logging, data types, and validation:
+
+**Error Handling:**
+- Created `ErrorCode` enum with semantic error codes (VALIDATION_ERROR, API_ERROR, TIMEOUT_ERROR, PARSE_ERROR, NETWORK_ERROR, CONFIGURATION_ERROR)
+- Created `ErrorResponse` DTO for structured error responses
+- Updated all Verticles to use `ErrorCode` instead of hardcoded "1"
+- Completed TODO in `BonificoVerticle` to parse successful money transfer responses
+
+**Logging Improvements:**
+- Changed logging level from TRACE to DEBUG for better performance
+- Removed redundant method entry/exit logs
+- Standardized all log messages to English
+- Moved sensitive data from INFO to DEBUG level
+- Added context to error logs (creditor names, account IDs, etc.)
+
+**File Cleanup:**
+- Deleted unused `ExceptionCoda.java`
+- Completed refactoring of `GestisciRequestVerticle` to use `MessageParserUtil` (reduced from 235 to 125 lines)
+
+**Files Added:**
+- `src/main/java/it/demo/fabrick/dto/ErrorCode.java`
+- `src/main/java/it/demo/fabrick/dto/ErrorResponse.java`
+- `src/main/java/it/demo/fabrick/utils/SocketResponseFormatter.java` (later deleted)
+
+**Files Modified:**
+- All Verticles - Updated to use ErrorCode enum and improved logging
+- `src/main/java/it/demo/fabrick/vertx/GestisciRequestVerticle.java` - Refactored to use MessageParserUtil methods
+- `src/main/resources/logging-extend.xml` - Changed level to DEBUG
+- Unit tests updated to test new error codes
+
+### BigDecimal Migration and Input Validation (February 2025)
+
+Replaced all `double` types with `BigDecimal` for monetary values and added comprehensive input validation:
+
+**Data Type Changes:**
+- `BonificoRequestDto.amount`: `double` → `BigDecimal`
+- `ListaTransactionDto.amount`: `double` → `BigDecimal`
+- `BalanceDto.balance` and `availableBalance`: `double` → `BigDecimal`
+- Updated all related code to use `BigDecimal.compareTo()` for comparisons
+
+**Input Validation:**
+- Added `MessageParserUtil.validateMoneyTransferRequest()` method
+- Validates amount range (0.01 to 999999999.99)
+- Validates currency format (ISO 4217 - 3 uppercase letters)
+- Validates creditor name (required, max 140 characters)
+- Validates description (required, max 500 characters)
+- Validation is automatically called in `BonificoRequestDto` constructor
+
+**Constants Added:**
+- Operation codes: `OPERATION_LIS`, `OPERATION_SAL`, `OPERATION_BON`
+- Message parsing patterns: `PATTERN_NULLIFEMPTY`, `PATTERN_NOTRIM`, `PATTERN_THREE_LETTER_CODE`
+- Validation limits: `MIN_TRANSFER_AMOUNT`, `MAX_TRANSFER_AMOUNT`, `MAX_DESCRIPTION_LENGTH`, `MAX_CREDITOR_NAME_LENGTH`
+
+**Dependency Cleanup:**
+- Removed jsoniter dependency (use Jackson only)
+
+**Test Coverage:**
+- Added 13 new validation tests in `TransactionValidationUtilTest` (23 total tests)
+- Updated `DtoSerializationTest` to use `BigDecimal.compareTo()`
+
+**Files Modified:**
+- `src/main/java/it/demo/fabrick/dto/BalanceDto.java`
+- `src/main/java/it/demo/fabrick/dto/BonificoRequestDto.java`
+- `src/main/java/it/demo/fabrick/dto/ListaTransactionDto.java`
+- `src/main/java/it/demo/fabrick/utils/MessageParserUtil.java`
+- `src/main/java/it/demo/fabrick/utils/TransactionValidationUtil.java`
+- `src/main/java/it/demo/fabrick/vertx/BonificoVerticle.java`
+- `src/test/java/it/demo/fabrick/unit/dto/DtoSerializationTest.java`
+- `src/test/java/it/demo/fabrick/unit/utils/TransactionValidationUtilTest.java`
+- `pom.xml` - Removed jsoniter
+
+### Generics and Hardcoded String Fixes (February 2025)
+
+Improved code quality through better generics usage and elimination of hardcoded strings:
+
+**Generics:**
+- Replaced all `ArrayList` with `List<E>` in DTOs for better type safety
+- `BalanceDto`: `ArrayList<Error>` → `List<Error>`
+- `BonificoResponseDto`: `ArrayList<Error>` → `List<Error>`
+- `ErrorDto`: `ArrayList<AnErrorDto>` → `List<AnErrorDto>`
+- `TransactionDto`: `ArrayList<Error>` → `List<Error>`, `ArrayList<ListaTransactionDto>` → `List<ListaTransactionDto>`
+
+**Hardcoded Strings:**
+- Fixed hardcoded `"LIS"` in `BonificoVerticle` to use `MessageParserUtil.OPERATION_LIS`
+
+**Files Modified:**
+- `src/main/java/it/demo/fabrick/dto/BalanceDto.java`
+- `src/main/java/it/demo/fabrick/dto/BonificoResponseDto.java`
+- `src/main/java/it/demo/fabrick/dto/ErrorDto.java`
+- `src/main/java/it/demo/fabrick/dto/TransactionDto.java`
+- `src/main/java/it/demo/fabrick/vertx/BonificoVerticle.java`

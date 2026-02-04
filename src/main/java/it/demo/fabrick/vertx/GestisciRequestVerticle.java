@@ -1,11 +1,6 @@
 package it.demo.fabrick.vertx;
 
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,12 +15,11 @@ import it.demo.fabrick.ContoDemoApplication;
 import it.demo.fabrick.dto.ConfigurazioneDto;
 import it.demo.fabrick.dto.ErrorCode;
 import it.demo.fabrick.exception.ExceptionMessageIn;
-import it.demo.fabrick.utils.Constants;
+import it.demo.fabrick.utils.MessageParserUtil;
 
 @Component
 public class GestisciRequestVerticle extends AbstractVerticle {
 
-	private static final String REGEX_URL_PARAMETER = "(\\{.+?\\})";
 	private static Logger log = LoggerFactory.getLogger(GestisciRequestVerticle.class);
 
 	@Value("${fabrick.accountId}")
@@ -58,10 +52,10 @@ public class GestisciRequestVerticle extends AbstractVerticle {
 
 				ConfigurazioneDto configurazione = new ConfigurazioneDto(line);
 
-				Map<String, String> mappaInput = creaConfigurazioneMessage(configurazione.getMessageIn());
+				Map<String, String> mappaInput = MessageParserUtil.parseConfiguration(configurazione.getMessageIn());
 				Map<String, String> mappaMessageIn;
 				try {
-					mappaMessageIn = decodeAnInput(messageIn, mappaInput);
+					mappaMessageIn = MessageParserUtil.decodeMessage(messageIn, mappaInput);
 
 					log.debug("Message parsed for operation: {}", operazioneInEntrata);
 
@@ -85,8 +79,8 @@ public class GestisciRequestVerticle extends AbstractVerticle {
 
 		JsonObject json = new JsonObject();
 
-		String indirizzo = sovrascriviAccountNumber(configurazione.getIndirizzo());
-		indirizzo = sovrascriviChiaviSullIndirizzo(mappaMessageIn, indirizzo);
+		String indirizzo = substituteAccountId(configurazione.getIndirizzo());
+		indirizzo = MessageParserUtil.substituteUrlParameters(mappaMessageIn, indirizzo);
 		json.put("indirizzo", indirizzo);
 		json.put("mappaMessageIn", mappaMessageIn);
 
@@ -118,117 +112,14 @@ public class GestisciRequestVerticle extends AbstractVerticle {
 
 	}
 
-	private String sovrascriviChiaviSullIndirizzo(Map<String, String> mappaMessageIn, String indirizzo) {
-
-		String result = null;
-		StringBuffer builder = new StringBuffer();
-		Matcher matcher = Pattern.compile(REGEX_URL_PARAMETER).matcher(indirizzo);
-		while (matcher.find()){
-
-			String key = matcher.group();
-			key = key.substring(1, key.length() - 1);
-			String value = mappaMessageIn.get(key);
-
-			matcher.appendReplacement(builder, value);
-		}
-
-		matcher.appendTail(builder);
-
-		result = builder.toString();
-		if (Constants.EMPTY_STRING.equals(result)) {
-			result = indirizzo;
-		}
-
-		return result;
-	}
-
-	private String sovrascriviAccountNumber(String indirizzo) {
-
-		// Replace {account-number} placeholder with accountId from application properties
+	/**
+	 * Substitute {account-number} placeholder with actual accountId from application properties.
+	 *
+	 * @param indirizzo URL with {account-number} placeholder
+	 * @return URL with account number substituted
+	 */
+	private String substituteAccountId(String indirizzo) {
 		return indirizzo.replace("{account-number}", accountId);
-	}
-
-	public static String padRight(String stringa, int lunghezza) {
-		return String.format("%-" + lunghezza + "s", stringa);
-	}
-
-	public static String padLeft(String stringa, int lunghezza) {
-		return String.format("%" + lunghezza + "s", stringa);
-	}
-
-	private Map<String, String> creaConfigurazioneMessage(String configurazioneDaLavorare) {
-
-		Map<String, String> mappaConfigurazione = new LinkedHashMap<>();
-
-		String[] split = configurazioneDaLavorare.split(";");
-		for (String configurazineDiUnCampo : split) {
-
-			String[] split2 = configurazineDiUnCampo.split("=");
-
-			mappaConfigurazione.put(split2[0], split2[1]);
-		}
-
-		return mappaConfigurazione;
-	}
-
-	private Map<String, String> decodeAnInput(String messageInInput, Map<String, String> creaConfigurazioneInput)
-			throws ExceptionMessageIn {
-
-		Map<String, String> mappaMessageIn = new HashMap<>();
-
-		int start = 0;
-		int end = 0;
-
-		Set<String> keySet = creaConfigurazioneInput.keySet();
-		for (String key : keySet) {
-			
-			String valore = creaConfigurazioneInput.get(key);
-			log.trace("Key {} , valore {}", key, valore);
-			String substring = null;
-
-			try {
-				
-
-				if (Pattern.matches("^NULLIFEMTPY.*", valore)) {
-
-					start = end;
-					end = start + Integer.valueOf(valore.substring(11));
-					substring = messageInInput.substring(start, end).trim();
-
-					if (substring.isEmpty()) {
-						substring = null;
-					}
-
-				} else if (Pattern.matches("^NOTRIM.*", valore)) {
-
-					start = end;
-					end = start + Integer.valueOf(valore.substring(6));
-					substring = messageInInput.substring(start, end);
-
-				} else if (Pattern.matches("^[A-Z]{3}.*", valore)) {
-
-					start = end;
-					end = start + Integer.valueOf(valore.substring(3));
-					substring = messageInInput.substring(start, end).replaceFirst("^0+(?!$)", Constants.EMPTY_STRING)
-							.trim();
-
-				} else {
-
-					start = end;
-					end = start + Integer.valueOf(valore);
-					substring = messageInInput.substring(start, end).trim();
-				}
-
-			} catch (StringIndexOutOfBoundsException e) {
-				log.error("Exception message [" + messageInInput + "]", e);
-				throw new ExceptionMessageIn();
-			}
-
-			mappaMessageIn.put(key, substring);
-		}
-
-		return mappaMessageIn;
-
 	}
 
 }

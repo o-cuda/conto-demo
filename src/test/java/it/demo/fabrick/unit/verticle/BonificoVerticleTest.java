@@ -41,7 +41,7 @@ class BonificoVerticleTest {
 	private BonificoVerticle verticle;
 
 	private static final String TEST_API_KEY = "test-api-key-12345";
-	private static final String TEST_BASE_URL = "https://test.api.example.com/v4.0";
+	private static final String TEST_AUTH_SCHEMA = "S2S";
 
 	@BeforeEach
 	void setUp() throws Exception {
@@ -50,10 +50,10 @@ class BonificoVerticleTest {
 		apiKeyField.setAccessible(true);
 		apiKeyField.set(verticle, TEST_API_KEY);
 
-		// Set apiBaseUrl using reflection since it's @Value injected
-		Field baseUrlField = BonificoVerticle.class.getDeclaredField("apiBaseUrl");
-		baseUrlField.setAccessible(true);
-		baseUrlField.set(verticle, TEST_BASE_URL);
+		// Set authSchema using reflection since it's @Value injected
+		Field authSchemaField = BonificoVerticle.class.getDeclaredField("authSchema");
+		authSchemaField.setAccessible(true);
+		authSchemaField.set(verticle, TEST_AUTH_SCHEMA);
 
 		when(vertx.eventBus()).thenReturn(eventBus);
 	}
@@ -107,12 +107,12 @@ class BonificoVerticleTest {
 	}
 
 	@Test
-	@DisplayName("configuration - should inject apiBaseUrl")
-	void testConfiguration_apiBaseUrlInjected() throws Exception {
-		Field baseUrlField = BonificoVerticle.class.getDeclaredField("apiBaseUrl");
-		baseUrlField.setAccessible(true);
+	@DisplayName("configuration - should inject authSchema")
+	void testConfiguration_authSchemaInjected() throws Exception {
+		Field authSchemaField = BonificoVerticle.class.getDeclaredField("authSchema");
+		authSchemaField.setAccessible(true);
 
-		String baseUrl = (String) baseUrlField.get(verticle);
-		assertEquals(TEST_BASE_URL, baseUrl, "API base URL should be injected correctly");
+		String authSchema = (String) authSchemaField.get(verticle);
+		assertEquals(TEST_AUTH_SCHEMA, authSchema, "Auth schema should be injected correctly");
 	}
 }

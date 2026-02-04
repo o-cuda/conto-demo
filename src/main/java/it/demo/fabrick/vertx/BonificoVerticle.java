@@ -17,10 +17,10 @@ import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClient;
+import it.demo.fabrick.ContoDemoApplication;
 import it.demo.fabrick.dto.BonificoRequestDto;
 import it.demo.fabrick.dto.ErrorDto;
 import it.demo.fabrick.dto.ListaTransactionDto;
-import it.demo.fabrick.dto.TransactionDto;
 import it.demo.fabrick.utils.TransactionValidationUtil;
 import lombok.extern.slf4j.Slf4j;
 
@@ -31,10 +31,10 @@ public class BonificoVerticle extends AbstractVerticle {
 	@Value("${fabrick.apiKey}")
 	private String apiKey;
 
-	@Value("${fabrick.baseUrl:https://sandbox.platfr.io/api/gbs/banking/v4.0}")
-	private String apiBaseUrl;
+	@Value("${fabrick.authSchema}")
+	private String authSchema;
 
-	private static final int MONEY_TRANSFER_TIMEOUT_MS = 110000; // 110 seconds (more than required 100)
+	private static final int MONEY_TRANSFER_TIMEOUT_MS = 120000; // 120 seconds (exceeds Fabrick's recommended 100 seconds)
 
 	@Override
 	public void start(io.vertx.core.Promise<Void> startFuture) throws Exception {
@@ -50,19 +50,20 @@ public class BonificoVerticle extends AbstractVerticle {
 	}
 
 	public void lanciaChiamataEsterna(Message<Object> message) {
-		
+
 		log.info("lanciaChiamataEsterna - start");
 
 		JsonObject json = (JsonObject) message.body();
 
 		String indirizzo = json.getString("indirizzo");
+
 		JsonObject mappaMessageIn = json.getJsonObject("mappaMessageIn");
 
 		log.info("message.body().\"indirizzo\" = {}", indirizzo);
 		log.info("message.body().\"mappaMessageIn\" = {}", mappaMessageIn);
 
 		WebClient client = WebClient.create(vertx);
-		
+
 		String requestString = null;
 		ObjectMapper mapper = new ObjectMapper();
 		try {
@@ -80,7 +81,7 @@ public class BonificoVerticle extends AbstractVerticle {
 		client.requestAbs(HttpMethod.POST, indirizzo)
 				.timeout(MONEY_TRANSFER_TIMEOUT_MS)
 				.putHeader("Content-Type", "application/json")
-				.putHeader("Auth-Schema", "S2S")
+				.putHeader("Auth-Schema", authSchema)
 				.putHeader("Api-Key", apiKey)
 				.sendBuffer(Buffer.buffer(requestString), ar -> {
 					if (ar.succeeded()) {
@@ -140,6 +141,8 @@ public class BonificoVerticle extends AbstractVerticle {
 	 * Performs a validation enquiry when receiving HTTP 500 or 504 errors.
 	 * Searches the transactions list for a matching money transfer to determine
 	 * if the transfer was executed despite the error response.
+	 * This simulates a LIS request through GestisciRequestVerticle to properly
+	 * obtain the URL from CONTO_INDIRIZZI table.
 	 *
 	 * @param originalMessage the original event bus message to reply to
 	 * @param mappaMessageIn the original request parameters
@@ -149,79 +152,71 @@ public class BonificoVerticle extends AbstractVerticle {
 
 		log.info("performValidationEnquiry - starting validation enquiry");
 
-		String accountNumber = mappaMessageIn.getString("account-number");
 		String amountStr = mappaMessageIn.getString("amount");
 		String currency = mappaMessageIn.getString("currency");
 		String description = mappaMessageIn.getString("description");
 		String creditorName = mappaMessageIn.getString("creditor-name");
 
-		log.info("Searching for transfer - account: {}, amount: {}, currency: {}, description: {}, creditor: {}",
-				accountNumber, amountStr, currency, description, creditorName);
+		log.info("Searching for transfer - amount: {}, currency: {}, description: {}, creditor: {}",
+				amountStr, currency, description, creditorName);
 
 		// Use today's date for the search (money transfer should appear same day)
 		LocalDate today = LocalDate.now();
 		String todayStr = today.toString();
 
-		// Build transactions list URL
-		String transactionsUrl = String.format("%s/accounts/%s/transactions?fromAccountingDate=%s&toAccountingDate=%s",
-				apiBaseUrl, accountNumber, todayStr, todayStr);
+		// Build a raw LIS message to send through GestisciRequestVerticle
+		// Format: LIS + 10 chars for start-date + 10 chars for end-date
+		// Based on CONTO_CONFIGURATION: 'OPERAZIONE=3;start-date=10;end-date=10;'
+		String lisMessage = "LIS" +
+				String.format("%-10s", todayStr) +
+				String.format("%-10s", todayStr);
 
-		log.debug("Transactions URL: {}", transactionsUrl);
+		log.debug("Sending LIS message for validation enquiry: {}", lisMessage);
 
-		WebClient client = WebClient.create(vertx);
+		// Send to GestisciRequestVerticle which will route to ListaTransazioniVerticle
+		vertx.eventBus().request("gestisci-chiamata-bus", lisMessage,
+				ContoDemoApplication.getDefaultDeliverOptions()
+						.setSendTimeout(30000), // 30 seconds timeout for validation enquiry
+				ar -> {
+			if (ar.succeeded()) {
+				String responseString = (String) ar.result().body();
+				log.info("Validation enquiry response received: {}", responseString);
 
-		client.requestAbs(HttpMethod.GET, transactionsUrl)
-				.timeout(30000) // 30 seconds timeout for validation enquiry
-				.putHeader("Auth-Schema", "S2S")
-				.putHeader("Api-Key", apiKey)
-				.putHeader("Content-Type", "application/json")
-				.send(ar -> {
-					if (ar.succeeded()) {
-						HttpResponse<Buffer> response = ar.result();
-						int statusCode = response.statusCode();
-						String bodyAsString = response.bodyAsString();
+				// Parse transactions and search for matching transfer
+				try {
+					com.fasterxml.jackson.core.type.TypeReference<java.util.List<ListaTransactionDto>> typeRef =
+							new com.fasterxml.jackson.core.type.TypeReference<java.util.List<ListaTransactionDto>>() {};
+					java.util.List<ListaTransactionDto> transactions = mapper.readValue(responseString, typeRef);
 
-						log.info("Validation enquiry response - status: {}", statusCode);
-
-						if (statusCode >= 300) {
-							log.error("Validation enquiry failed with status {}: {}", statusCode, bodyAsString);
-							originalMessage.fail(1, "Transfer failed: " + bodyAsString);
-							return;
-						}
-
-						// Parse transactions and search for matching transfer
-						try {
-							TransactionDto transactionDto = mapper.readValue(bodyAsString, TransactionDto.class);
-
-							if (transactionDto.getPayload() == null || transactionDto.getPayload().getList() == null) {
-								log.warn("No transactions found in response");
-								originalMessage.fail(1, "Transfer execution uncertain - no transactions found. Please verify before retrying.");
-								return;
-							}
-
-							// Search for matching transaction
-							ListaTransactionDto matchingTransaction = TransactionValidationUtil.findMatchingTransaction(
-									transactionDto.getPayload().getList(),
-									amountStr, currency, description, creditorName);
-
-							if (matchingTransaction != null) {
-								log.info("Found matching transaction - transfer was executed successfully: {}", matchingTransaction.getTransactionId());
-								originalMessage.reply("Transfer executed - Transaction ID: " + matchingTransaction.getTransactionId());
-							} else {
-								log.warn("No matching transaction found - transfer was likely not executed");
-								originalMessage.fail(1, "Transfer not executed. You may safely retry.");
-							}
-
-						} catch (JsonProcessingException e) {
-							log.error("Error parsing validation enquiry response", e);
-							originalMessage.fail(1, "Transfer execution uncertain - unable to verify. Please manually check before retrying.");
-						}
-
-					} else {
-						log.error("Validation enquiry request failed: {}", ar.cause().getMessage());
-						originalMessage.fail(1, "Transfer execution uncertain - validation enquiry failed. Please manually check before retrying.");
+					if (transactions == null || transactions.isEmpty()) {
+						log.warn("No transactions found in response");
+						originalMessage.fail(1, "Transfer execution uncertain - no transactions found. Please verify before retrying.");
+						return;
 					}
-				});
+
+					// Search for matching transaction
+					ListaTransactionDto matchingTransaction = TransactionValidationUtil.findMatchingTransaction(
+							transactions,
+							amountStr, currency, description, creditorName);
+
+					if (matchingTransaction != null) {
+						log.info("Found matching transaction - transfer was executed successfully: {}", matchingTransaction.getTransactionId());
+						originalMessage.reply("Transfer executed - Transaction ID: " + matchingTransaction.getTransactionId());
+					} else {
+						log.warn("No matching transaction found - transfer was likely not executed");
+						originalMessage.fail(1, "Transfer not executed. You may safely retry.");
+					}
+
+				} catch (JsonProcessingException e) {
+					log.error("Error parsing validation enquiry response", e);
+					originalMessage.fail(1, "Transfer execution uncertain - unable to verify. Please manually check before retrying.");
+				}
+
+			} else {
+				log.error("Validation enquiry request failed: {}", ar.cause().getMessage());
+				originalMessage.fail(1, "Transfer execution uncertain - validation enquiry failed. Please manually check before retrying.");
+			}
+		});
 	}
 
 }

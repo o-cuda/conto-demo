@@ -1,5 +1,6 @@
 package it.demo.fabrick.unit.verticle;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -18,10 +19,13 @@ import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.EventBus;
 import it.demo.fabrick.vertx.SaldoVerticle;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 /**
  * Unit tests for SaldoVerticle.
  */
+@MockitoSettings(strictness = Strictness.LENIENT)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("SaldoVerticle Tests")
 class SaldoVerticleTest {
@@ -36,6 +40,7 @@ class SaldoVerticleTest {
 	private SaldoVerticle verticle;
 
 	private static final String TEST_API_KEY = "test-api-key-12345";
+	private static final String TEST_AUTH_SCHEMA = "S2S";
 
 	@BeforeEach
 	void setUp() throws Exception {
@@ -43,6 +48,11 @@ class SaldoVerticleTest {
 		Field apiKeyField = SaldoVerticle.class.getDeclaredField("apiKey");
 		apiKeyField.setAccessible(true);
 		apiKeyField.set(verticle, TEST_API_KEY);
+
+		// Set authSchema using reflection since it's @Value injected
+		Field authSchemaField = SaldoVerticle.class.getDeclaredField("authSchema");
+		authSchemaField.setAccessible(true);
+		authSchemaField.set(verticle, TEST_AUTH_SCHEMA);
 
 		when(vertx.eventBus()).thenReturn(eventBus);
 	}
@@ -57,5 +67,17 @@ class SaldoVerticleTest {
 		verticle.start(startPromise);
 
 		verify(eventBus).consumer(any(), any());
+	}
+
+	// ==================== Configuration Tests ====================
+
+	@Test
+	@DisplayName("configuration - should inject authSchema")
+	void testConfiguration_authSchemaInjected() throws Exception {
+		Field authSchemaField = SaldoVerticle.class.getDeclaredField("authSchema");
+		authSchemaField.setAccessible(true);
+
+		String authSchema = (String) authSchemaField.get(verticle);
+		assertEquals(TEST_AUTH_SCHEMA, authSchema, "Auth schema should be injected correctly");
 	}
 }

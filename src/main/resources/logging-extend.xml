@@ -1,12 +1,12 @@
 <included>
 
 	<property name="logger_level" value="DEBUG" />
-	
-	<logger name="it.demo" level="TRACE" />
+
+	<logger name="it.demo" level="DEBUG" />
 
 	<property name="json_logger" value="false" />
 	<property name="async_logger" value="false" />
-	
+
 	<logger name="io.netty" level="INFO" />
 	<logger name="com.zaxxer" level="INFO" />
 	<logger name="org.hibernate" level="INFO" />

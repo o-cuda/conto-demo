@@ -34,59 +34,46 @@ public class GestisciRequestVerticle extends AbstractVerticle {
 	@Override
 	public void start(io.vertx.core.Promise<Void> startFuture) throws Exception {
 
-		log.info("start - lanciato");
-		log.debug("mi sottoscrivo al bus 'gestisci-chiamata-bus' ..");
+		log.debug("Subscribing to event bus: gestisci-chiamata-bus");
 		vertx.eventBus().consumer("gestisci-chiamata-bus", message -> {
-		
+
 			gestisciChiamata(message);
 		});
 	}
 
 	public void gestisciChiamata(Message<Object> message) {
-		
-		log.info("gestisciChiamata - start");
 
 		Object body = message.body();
-		log.trace("1 received message.body() = {}", body);
-		
-
 		String messageIn = body.toString();
 		String operazioneInEntrata = messageIn.substring(0, 3);
-		log.debug("scrivo sul bus get-configurazione-bus l'operazione {} ", operazioneInEntrata);
+
+		log.info("Processing request for operation: {}", operazioneInEntrata);
 
 		vertx.eventBus().request("get-configurazione-bus", operazioneInEntrata, ContoDemoApplication.getDefaultDeliverOptions(), asyncResult -> {
 
 			if (asyncResult.succeeded()) {
 
 				JsonArray line = (JsonArray) asyncResult.result().body();
-				log.debug("ricevuta risposta da get-configurazione-bus: {}", line);
+				log.debug("Configuration received for operation: {}", operazioneInEntrata);
 
 				ConfigurazioneDto configurazione = new ConfigurazioneDto(line);
-				log.trace("configurazione: {}", configurazione);
 
 				Map<String, String> mappaInput = creaConfigurazioneMessage(configurazione.getMessageIn());
 				Map<String, String> mappaMessageIn;
 				try {
 					mappaMessageIn = decodeAnInput(messageIn, mappaInput);
-				
 
-					if (log.isDebugEnabled()) {
-						Set<String> keySet = mappaMessageIn.keySet();
-						for (String key : keySet) {
-
-							log.debug("{}: '{}'", key, mappaMessageIn.get(key));
-						}
-					}
+					log.debug("Message parsed for operation: {}", operazioneInEntrata);
 
 					lanciaChiamateEsterne(configurazione, message, mappaMessageIn);
 
 				} catch (ExceptionMessageIn e) {
-					log.error("Message parsing failed", e);
+					log.error("Message parsing failed for operation: {}", operazioneInEntrata, e);
 					message.fail(ErrorCode.VALIDATION_ERROR.getCode(), e.getMessage());
 				}
 
 			} else {
-				log.error("Failed to get configuration", asyncResult.cause());
+				log.error("Failed to get configuration for operation: {}", operazioneInEntrata, asyncResult.cause());
 				message.fail(ErrorCode.CONFIGURATION_ERROR.getCode(), asyncResult.cause().getMessage());
 			}
 		});
@@ -96,14 +83,14 @@ public class GestisciRequestVerticle extends AbstractVerticle {
 	private void lanciaChiamateEsterne(ConfigurazioneDto configurazione, Message<Object> message,
 			Map<String, String> mappaMessageIn) {
 
-		log.info("lanciaChiamateEsterne - start");
-
 		JsonObject json = new JsonObject();
-		
+
 		String indirizzo = sovrascriviAccountNumber(configurazione.getIndirizzo());
 		indirizzo = sovrascriviChiaviSullIndirizzo(mappaMessageIn, indirizzo);
 		json.put("indirizzo", indirizzo);
 		json.put("mappaMessageIn", mappaMessageIn);
+
+		log.debug("Routing to bus: {}", configurazione.getMessageOutFromBus());
 
 		vertx.eventBus().request(configurazione.getMessageOutFromBus(), json, ContoDemoApplication.getDefaultDeliverOptions(), asyncResult -> {
 

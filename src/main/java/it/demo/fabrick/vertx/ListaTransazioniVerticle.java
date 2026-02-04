@@ -31,10 +31,8 @@ public class ListaTransazioniVerticle extends AbstractVerticle {
 	@Override
 	public void start(io.vertx.core.Promise<Void> startFuture) throws Exception {
 
-		log.info("start - lanciato");
-
 		String bus = "lista_bus";
-		log.debug("mi sottoscrivo al bus '{}' ..", bus);
+		log.debug("Subscribing to event bus: {}", bus);
 		vertx.eventBus().consumer(bus, message -> {
 
 			lanciaChiamataEsterna(message);
@@ -43,17 +41,13 @@ public class ListaTransazioniVerticle extends AbstractVerticle {
 
 	public void lanciaChiamataEsterna(Message<Object> message) {
 
-		log.info("lanciaChiamataEsterna - start");
-
 		JsonObject json = (JsonObject) message.body();
-
 		String indirizzo = json.getString("indirizzo");
 
-		log.info("message.body().\"indirizzo\" = {}", indirizzo);
+		log.info("Processing transactions list request");
 
 		WebClient client = WebClient.create(vertx);
 
-		log.debug("richiamo servizio REST ...");
 		client.requestAbs(HttpMethod.GET, indirizzo)
 				.putHeader("Content-Type", "application/json")
 				.putHeader("Auth-Schema", authSchema)
@@ -67,7 +61,7 @@ public class ListaTransazioniVerticle extends AbstractVerticle {
 						@Nullable
 						String bodyAsString = response.bodyAsString();
 
-						log.info("Received response with status code: {}", statusCode);
+						log.debug("Transactions API response status: {}", statusCode);
 
 						if (statusCode >= 300) {
 							String errorMessage = "API error response: " + bodyAsString;
@@ -76,21 +70,20 @@ public class ListaTransazioniVerticle extends AbstractVerticle {
 							return;
 						}
 
-						log.debug("Transactions response body received");
-
 						TransactionDto transaction = null;
 						ObjectMapper mapper = new ObjectMapper();
 						String listaTransazioni = null;
 						try {
 							transaction = mapper.readValue(bodyAsString, TransactionDto.class);
+							int transactionCount = transaction.getPayload().getList() != null ? transaction.getPayload().getList().size() : 0;
 							listaTransazioni = mapper.writeValueAsString(transaction.getPayload().getList());
+							log.info("Transactions retrieved successfully - count: {}", transactionCount);
 						} catch (JsonProcessingException e) {
 							log.error("Failed to parse transactions response", e);
 							message.fail(ErrorCode.PARSE_ERROR.getCode(), "Failed to parse transactions response: " + e.getMessage());
 							return;
 						}
 
-						log.info("Transactions retrieved successfully");
 						message.reply(listaTransazioni);
 
 					} else {

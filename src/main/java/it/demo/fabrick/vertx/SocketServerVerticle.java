@@ -11,6 +11,7 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.net.NetServer;
 import io.vertx.core.net.NetServerOptions;
 import it.demo.fabrick.ContoDemoApplication;
+import it.demo.fabrick.dto.ErrorCode;
 
 @Component
 public class SocketServerVerticle extends AbstractVerticle {
@@ -43,21 +44,25 @@ public class SocketServerVerticle extends AbstractVerticle {
 
 					if (asyncResult.succeeded()) {
 
-								String messageOut = (String) asyncResult.result().body();
-								log.info("messageOut: {}", messageOut);
+						String messageOut = (String) asyncResult.result().body();
+						log.info("Request completed successfully");
 
 						int stringLen = 500;
 
-						// String stringCallBack = conv;
-								String stringOut = "0" + messageOut;
+						String stringOut = "0" + messageOut;
 						String stringFill = String.format("%-" + (stringLen) + "s", stringOut);
 
 						socket.write(stringFill, CHARSET);
-						log.info("OUT: [{}] \n LEN: [{}]", stringFill, stringFill.length());
+						log.debug("Response sent: {} bytes", stringFill.length());
 					} else {
-						String errore = String.format("1[%s] %s", requestId, asyncResult.cause().getMessage());
-						log.error("OUT: [{}]", errore);
-						socket.write(errore, CHARSET);
+						// Include error code in response format
+						int errorCode = asyncResult.cause() instanceof io.vertx.core.eventbus.ReplyException
+								? ((io.vertx.core.eventbus.ReplyException) asyncResult.cause()).failureCode()
+								: ErrorCode.UNKNOWN_ERROR.getCode();
+						String errorMessage = asyncResult.cause().getMessage();
+						String errorResponse = String.format("1[%s] %s", requestId, errorMessage);
+						log.error("Request failed - code: {}, message: {}", errorCode, errorMessage);
+						socket.write(errorResponse, CHARSET);
 					}
 					socket.end();
 				});

@@ -14,6 +14,7 @@ import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClient;
+import it.demo.fabrick.dto.ErrorCode;
 import it.demo.fabrick.dto.TransactionDto;
 import lombok.extern.slf4j.Slf4j;
 
@@ -23,6 +24,9 @@ public class ListaTransazioniVerticle extends AbstractVerticle {
 
 	@Value("${fabrick.apiKey}")
 	private String apiKey;
+
+	@Value("${fabrick.authSchema}")
+	private String authSchema;
 
 	@Override
 	public void start(io.vertx.core.Promise<Void> startFuture) throws Exception {
@@ -38,7 +42,7 @@ public class ListaTransazioniVerticle extends AbstractVerticle {
 	}
 
 	public void lanciaChiamataEsterna(Message<Object> message) {
-		
+
 		log.info("lanciaChiamataEsterna - start");
 
 		JsonObject json = (JsonObject) message.body();
@@ -52,7 +56,7 @@ public class ListaTransazioniVerticle extends AbstractVerticle {
 		log.debug("richiamo servizio REST ...");
 		client.requestAbs(HttpMethod.GET, indirizzo)
 				.putHeader("Content-Type", "application/json")
-				.putHeader("Auth-Schema", "S2S")
+				.putHeader("Auth-Schema", authSchema)
 				.putHeader("Api-Key", apiKey)
 				.putHeader("Content-Type", "application/json")
 				.sendBuffer(Buffer.buffer(""), ar -> {
@@ -66,14 +70,14 @@ public class ListaTransazioniVerticle extends AbstractVerticle {
 						log.info("Received response with status code: {}", statusCode);
 
 						if (statusCode >= 300) {
-							String messaggio = "probabile errore nella response: " + bodyAsString;
-							log.error(messaggio);
-							message.fail(1, messaggio);
+							String errorMessage = "API error response: " + bodyAsString;
+							log.error(errorMessage);
+							message.fail(ErrorCode.API_ERROR.getCode(), errorMessage);
 							return;
-						} 
-							
-						log.info("bodyAsString: {}", bodyAsString);
-						
+						}
+
+						log.debug("Transactions response body received");
+
 						TransactionDto transaction = null;
 						ObjectMapper mapper = new ObjectMapper();
 						String listaTransazioni = null;
@@ -81,17 +85,18 @@ public class ListaTransazioniVerticle extends AbstractVerticle {
 							transaction = mapper.readValue(bodyAsString, TransactionDto.class);
 							listaTransazioni = mapper.writeValueAsString(transaction.getPayload().getList());
 						} catch (JsonProcessingException e) {
-							log.error("error in json parsing", e);
-							message.fail(1, "error in json parsing");
+							log.error("Failed to parse transactions response", e);
+							message.fail(ErrorCode.PARSE_ERROR.getCode(), "Failed to parse transactions response: " + e.getMessage());
 							return;
 						}
-						
+
+						log.info("Transactions retrieved successfully");
 						message.reply(listaTransazioni);
-						
+
 					} else {
-						String messaggio = String.format("Impossibile effettuare la chiamata al servizio, forse e' down: %s", ar.cause().getMessage());
-						log.error(messaggio);
-						message.fail(1, messaggio);
+						String errorMessage = String.format("Failed to connect to transactions service: %s", ar.cause().getMessage());
+						log.error(errorMessage);
+						message.fail(ErrorCode.NETWORK_ERROR.getCode(), errorMessage);
 					}
 				});
 	}

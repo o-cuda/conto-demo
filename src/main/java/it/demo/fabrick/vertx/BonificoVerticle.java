@@ -19,7 +19,10 @@ import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClient;
 import it.demo.fabrick.ContoDemoApplication;
 import it.demo.fabrick.dto.BonificoRequestDto;
+import it.demo.fabrick.dto.BonificoResponseDto;
 import it.demo.fabrick.dto.ErrorDto;
+import it.demo.fabrick.dto.ErrorCode;
+import it.demo.fabrick.dto.ErrorResponse;
 import it.demo.fabrick.dto.ListaTransactionDto;
 import it.demo.fabrick.utils.TransactionValidationUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -71,9 +74,8 @@ public class BonificoVerticle extends AbstractVerticle {
 			requestString = mapper.writeValueAsString(request);
 			log.debug("requestString: {}", requestString);
 		} catch (JsonProcessingException | ParseException e1) {
-			String messaggio = "Errore parse della request";
-			log.error(messaggio, e1);
-			message.fail(1, messaggio);
+			log.error("Failed to parse money transfer request", e1);
+			message.fail(ErrorCode.PARSE_ERROR.getCode(), "Failed to parse money transfer request: " + e1.getMessage());
 			return;
 		}
 
@@ -106,8 +108,8 @@ public class BonificoVerticle extends AbstractVerticle {
 							try {
 								errore = mapper.readValue(bodyAsString, ErrorDto.class);
 							} catch (JsonProcessingException e) {
-								log.error("error in json parsing", e);
-								message.fail(1, "error in json parsing");
+								log.error("Failed to parse error response from API", e);
+								message.fail(ErrorCode.PARSE_ERROR.getCode(), "Failed to parse error response: " + e.getMessage());
 								return;
 							}
 
@@ -119,20 +121,33 @@ public class BonificoVerticle extends AbstractVerticle {
 
 							String messaggioDiErrore = builder.toString();
 							messaggioDiErrore = messaggioDiErrore.substring(0, messaggioDiErrore.length() - 1);
-							log.error(messaggioDiErrore);
-							message.fail(1, messaggioDiErrore);
+							log.error("Money transfer API error: {}", messaggioDiErrore);
+							message.fail(ErrorCode.API_ERROR.getCode(), messaggioDiErrore);
 							return;
 						}
 
-						log.info("bodyAsString: {}", bodyAsString);
+						log.info("Money transfer successful, parsing response");
 
-						// FIXME not to do
-						message.reply("TODO");
+						// Parse successful response and return transaction ID
+						try {
+							BonificoResponseDto bonificoResponse = mapper.readValue(bodyAsString, BonificoResponseDto.class);
+							if (bonificoResponse != null && bonificoResponse.getPayload() != null && bonificoResponse.getPayload().getTransactionId() != null) {
+								String transactionId = bonificoResponse.getPayload().getTransactionId();
+								log.info("Money transfer executed successfully - Transaction ID: {}", transactionId);
+								message.reply("Transfer executed - Transaction ID: " + transactionId);
+							} else {
+								log.warn("Transfer response received but no transaction ID found in response: {}", bodyAsString);
+								message.reply("Transfer executed - Transaction ID not provided in response");
+							}
+						} catch (JsonProcessingException e) {
+							log.error("Failed to parse successful money transfer response", e);
+							message.fail(ErrorCode.PARSE_ERROR.getCode(), "Transfer executed but failed to parse response: " + e.getMessage());
+						}
 
 					} else {
-						String messaggio = String.format("Impossibile effettuare la chiamata al servizio, forse e' down: %s", ar.cause().getMessage());
-						log.error(messaggio);
-						message.fail(1, messaggio);
+						String errorMessage = String.format("Failed to call money transfer service: %s", ar.cause().getMessage());
+						log.error(errorMessage);
+						message.fail(ErrorCode.NETWORK_ERROR.getCode(), errorMessage);
 					}
 				});
 	}
@@ -190,7 +205,7 @@ public class BonificoVerticle extends AbstractVerticle {
 
 					if (transactions == null || transactions.isEmpty()) {
 						log.warn("No transactions found in response");
-						originalMessage.fail(1, "Transfer execution uncertain - no transactions found. Please verify before retrying.");
+						originalMessage.fail(ErrorCode.API_ERROR.getCode(), "Transfer execution uncertain - no transactions found. Please verify before retrying.");
 						return;
 					}
 
@@ -204,17 +219,17 @@ public class BonificoVerticle extends AbstractVerticle {
 						originalMessage.reply("Transfer executed - Transaction ID: " + matchingTransaction.getTransactionId());
 					} else {
 						log.warn("No matching transaction found - transfer was likely not executed");
-						originalMessage.fail(1, "Transfer not executed. You may safely retry.");
+						originalMessage.fail(ErrorCode.API_ERROR.getCode(), "Transfer not executed. You may safely retry.");
 					}
 
 				} catch (JsonProcessingException e) {
 					log.error("Error parsing validation enquiry response", e);
-					originalMessage.fail(1, "Transfer execution uncertain - unable to verify. Please manually check before retrying.");
+					originalMessage.fail(ErrorCode.PARSE_ERROR.getCode(), "Transfer execution uncertain - unable to verify. Please manually check before retrying.");
 				}
 
 			} else {
 				log.error("Validation enquiry request failed: {}", ar.cause().getMessage());
-				originalMessage.fail(1, "Transfer execution uncertain - validation enquiry failed. Please manually check before retrying.");
+				originalMessage.fail(ErrorCode.TIMEOUT_ERROR.getCode(), "Transfer execution uncertain - validation enquiry failed. Please manually check before retrying.");
 			}
 		});
 	}

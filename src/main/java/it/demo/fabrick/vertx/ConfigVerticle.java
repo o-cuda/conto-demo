@@ -11,6 +11,7 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.jdbc.JDBCClient;
 import io.vertx.ext.sql.SQLConnection;
+import it.demo.fabrick.dto.ErrorCode;
 
 @Component
 public class ConfigVerticle extends AbstractVerticle {
@@ -72,35 +73,35 @@ public class ConfigVerticle extends AbstractVerticle {
 		client.getConnection(conn -> {
 
 			if (conn.failed()) {
-				log.error(conn.cause().getMessage());
-				message.fail(1, String.format("%s", conn.cause().getMessage()));
+			log.error("Failed to get database connection", conn.cause());
+			message.fail(ErrorCode.CONFIGURATION_ERROR.getCode(), "Failed to get database connection: " + conn.cause().getMessage());
+			return;
+		}
+
+		final SQLConnection connection = conn.result();
+
+		log.trace("queryWithParams: operazione[{}], ambiente[{}]", operazioneInEntrata, ambiente);
+		connection.queryWithParams(QUERY, new JsonArray().add(operazioneInEntrata).add(ambiente), rs -> {
+
+			if (rs.failed()) {
+				String errorMessage = "Cannot retrieve configuration from database";
+				log.error(errorMessage, rs.cause());
+				message.fail(ErrorCode.CONFIGURATION_ERROR.getCode(), errorMessage + ": " + rs.cause().getMessage());
 				return;
 			}
 
-			final SQLConnection connection = conn.result();
+			if (rs.result().getResults().isEmpty()) {
+				String errorMessage = "No configuration found for operation: " + operazioneInEntrata;
+				log.error(errorMessage);
+				message.fail(ErrorCode.CONFIGURATION_ERROR.getCode(), errorMessage);
+				return;
+			} else if (rs.result().getResults().size() > 1) {
 
-			log.trace("queryWithParams: operazione[{}], ambiente[{}]", operazioneInEntrata, ambiente);
-			connection.queryWithParams(QUERY, new JsonArray().add(operazioneInEntrata).add(ambiente), rs -> {
-
-				if (rs.failed()) {
-					String errorMessage = "Cannot retrieve the data from the database";
-					log.error(errorMessage, rs.cause());
-					message.fail(1, String.format("%s %s", errorMessage, rs.cause().getMessage()));
-					return;
-				}
-
-				if (rs.result().getResults().isEmpty()) {
-					String errorMessage = "nessuna configurazione trovata per l'operazione " + operazioneInEntrata;
-					log.error(errorMessage);
-					message.fail(1, String.format("%s", errorMessage));
-					return;
-				} else if (rs.result().getResults().size() > 1) {
-
-					String errorMessage = "trovata piu' di una configurazione per l'operazione " + operazioneInEntrata;
-					log.error(errorMessage);
-					message.fail(1, String.format("%s", errorMessage));
-					return;
-				}
+				String errorMessage = "Multiple configurations found for operation: " + operazioneInEntrata;
+				log.error(errorMessage);
+				message.fail(ErrorCode.CONFIGURATION_ERROR.getCode(), errorMessage);
+				return;
+			}
 
 				for (JsonArray line : rs.result().getResults()) {
 

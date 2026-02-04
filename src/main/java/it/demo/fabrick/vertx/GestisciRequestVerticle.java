@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import io.vertx.core.AbstractVerticle;
@@ -17,6 +18,7 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import it.demo.fabrick.ContoDemoApplication;
 import it.demo.fabrick.dto.ConfigurazioneDto;
+import it.demo.fabrick.dto.ErrorCode;
 import it.demo.fabrick.exception.ExceptionMessageIn;
 import it.demo.fabrick.utils.Constants;
 
@@ -25,6 +27,9 @@ public class GestisciRequestVerticle extends AbstractVerticle {
 
 	private static final String REGEX_URL_PARAMETER = "(\\{.+?\\})";
 	private static Logger log = LoggerFactory.getLogger(GestisciRequestVerticle.class);
+
+	@Value("${fabrick.accountId}")
+	private String accountId;
 
 	@Override
 	public void start(io.vertx.core.Promise<Void> startFuture) throws Exception {
@@ -76,14 +81,13 @@ public class GestisciRequestVerticle extends AbstractVerticle {
 					lanciaChiamateEsterne(configurazione, message, mappaMessageIn);
 
 				} catch (ExceptionMessageIn e) {
-					String messaggio = String.format("%s", e.getMessage());
-					message.fail(1, messaggio);
+					log.error("Message parsing failed", e);
+					message.fail(ErrorCode.VALIDATION_ERROR.getCode(), e.getMessage());
 				}
 
 			} else {
-				String messaggio = String.format("%s", asyncResult.cause().getMessage());
-				log.error(asyncResult.cause().getMessage());
-				message.fail(1, messaggio);
+				log.error("Failed to get configuration", asyncResult.cause());
+				message.fail(ErrorCode.CONFIGURATION_ERROR.getCode(), asyncResult.cause().getMessage());
 			}
 		});
 
@@ -96,7 +100,8 @@ public class GestisciRequestVerticle extends AbstractVerticle {
 
 		JsonObject json = new JsonObject();
 		
-		String indirizzo = sovrascriviChiaviSullIndirizzo(mappaMessageIn, configurazione.getIndirizzo());
+		String indirizzo = sovrascriviAccountNumber(configurazione.getIndirizzo());
+		indirizzo = sovrascriviChiaviSullIndirizzo(mappaMessageIn, indirizzo);
 		json.put("indirizzo", indirizzo);
 		json.put("mappaMessageIn", mappaMessageIn);
 
@@ -107,16 +112,20 @@ public class GestisciRequestVerticle extends AbstractVerticle {
 
 					String responseString = (String) asyncResult.result().body();
 
-					log.debug("ricevuta risposta da {}: {}", configurazione.getMessageOutFromBus(), responseString);
+					log.debug("Response received from {}: {}", configurazione.getMessageOutFromBus(), responseString);
 
 					message.reply(responseString);
 				} else {
-					log.error(asyncResult.cause().getMessage());
-					message.fail(1, asyncResult.cause().getMessage());
+					log.error("Request to {} failed", configurazione.getMessageOutFromBus(), asyncResult.cause());
+					// Propagate the error code from the downstream verticle, or use UNKNOWN_ERROR if not available
+					int failureCode = asyncResult.cause() instanceof io.vertx.core.eventbus.ReplyException
+							? ((io.vertx.core.eventbus.ReplyException) asyncResult.cause()).failureCode()
+							: ErrorCode.UNKNOWN_ERROR.getCode();
+					message.fail(failureCode, asyncResult.cause().getMessage());
 				}
 			} catch (Exception e) {
-				log.error("Exception", e);
-				message.fail(1, "Exception, " + e.getCause().toString());
+				log.error("Unexpected exception while processing response", e);
+				message.fail(ErrorCode.UNKNOWN_ERROR.getCode(), "Unexpected error: " + e.getMessage());
 			}
 		});
 
@@ -144,6 +153,12 @@ public class GestisciRequestVerticle extends AbstractVerticle {
 		}
 
 		return result;
+	}
+
+	private String sovrascriviAccountNumber(String indirizzo) {
+
+		// Replace {account-number} placeholder with accountId from application properties
+		return indirizzo.replace("{account-number}", accountId);
 	}
 
 	public static String padRight(String stringa, int lunghezza) {

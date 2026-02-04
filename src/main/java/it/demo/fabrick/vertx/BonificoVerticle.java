@@ -24,6 +24,7 @@ import it.demo.fabrick.dto.ErrorDto;
 import it.demo.fabrick.dto.ErrorCode;
 import it.demo.fabrick.dto.ErrorResponse;
 import it.demo.fabrick.dto.ListaTransactionDto;
+import it.demo.fabrick.utils.MessageParserUtil;
 import it.demo.fabrick.utils.TransactionValidationUtil;
 import lombok.extern.slf4j.Slf4j;
 
@@ -181,7 +182,7 @@ public class BonificoVerticle extends AbstractVerticle {
 		// Build a raw LIS message to send through GestisciRequestVerticle
 		// Format: LIS + 10 chars for start-date + 10 chars for end-date
 		// Based on CONTO_CONFIGURATION: 'OPERAZIONE=3;start-date=10;end-date=10;'
-		String lisMessage = "LIS" +
+		String lisMessage = MessageParserUtil.OPERATION_LIS +
 				String.format("%-10s", todayStr) +
 				String.format("%-10s", todayStr);
 

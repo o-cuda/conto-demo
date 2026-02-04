@@ -1,6 +1,6 @@
 package it.demo.fabrick.dto;
 
-import java.util.ArrayList;
+import java.util.List;
 
 import lombok.Data;
 
@@ -12,7 +12,7 @@ import lombok.Data;
 public class BonificoResponseDto {
 
 	private String status;
-	private ArrayList<Error> error;
+	private List<Error> error;
 	private Payload payload;
 
 	@Data

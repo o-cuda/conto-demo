@@ -1,21 +1,22 @@
 package it.demo.fabrick.dto;
 
-import java.text.NumberFormat;
-import java.text.ParseException;
+import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Locale;
 
 import io.vertx.core.json.JsonObject;
+import it.demo.fabrick.utils.MessageParserUtil;
 import lombok.Data;
 
 @Data
 public class BonificoRequestDto {
 
+	public static final String REMITTANCE_INFORMATION_URI = "REMITTANCE_INFORMATION";
+
 	public Creditor creditor;
 	public String executionDate;
 	public String uri;
 	public String description;
-	public double amount;
+	public BigDecimal amount;
 	public String currency;
 	public boolean isUrgent;
 	public boolean isInstant;
@@ -23,7 +24,7 @@ public class BonificoRequestDto {
 	public String feeAccountId;
 	public TaxRelief taxRelief;
 
-	public BonificoRequestDto(JsonObject messageIn) throws ParseException {
+	public BonificoRequestDto(JsonObject messageIn) {
 		this.creditor = new Creditor();
 		creditor.setName(messageIn.getString("creditor-name"));
 		creditor.setAccount(new Account());
@@ -33,11 +34,17 @@ public class BonificoRequestDto {
 
 		LocalDate today = LocalDate.now();
 		executionDate = today.toString();
-		uri = "REMITTANCE_INFORMATION";
+		uri = REMITTANCE_INFORMATION_URI;
 		description = messageIn.getString("description");
-		NumberFormat format = NumberFormat.getInstance(Locale.US);
-		Number value = format.parse(messageIn.getString("amount"));
-		amount = value.doubleValue();
+
+		// Parse amount as BigDecimal for precise monetary calculations
+		String amountStr = messageIn.getString("amount");
+		try {
+			amount = new BigDecimal(amountStr);
+		} catch (NumberFormatException e) {
+			throw new IllegalArgumentException("Invalid amount format: " + amountStr, e);
+		}
+
 		currency = messageIn.getString("currency");
 		isUrgent = false;
 		isInstant = false;
@@ -55,6 +62,9 @@ public class BonificoRequestDto {
 
 		taxRelief.setNaturalPersonBeneficiary(new NaturalPersonBeneficiary());
 		taxRelief.getNaturalPersonBeneficiary().setFiscalCode1(messageIn.getString("fiscalCode"));
+
+		// Validate all request parameters
+		MessageParserUtil.validateMoneyTransferRequest(amount, currency, creditor.getName(), description);
 	}
 
 	@Data

@@ -1,6 +1,6 @@
 package it.demo.fabrick.vertx;
 
-import java.text.ParseException;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -68,7 +68,7 @@ public class BonificoVerticle extends AbstractVerticle {
 			BonificoRequestDto request = new BonificoRequestDto(mappaMessageIn);
 			requestString = mapper.writeValueAsString(request);
 			log.debug("Money transfer request: {}", requestString);
-		} catch (JsonProcessingException | ParseException e1) {
+		} catch (JsonProcessingException e1) {
 			log.error("Failed to parse money transfer request for creditor: {}", creditorName, e1);
 			message.fail(ErrorCode.PARSE_ERROR.getCode(), "Failed to parse money transfer request: " + e1.getMessage());
 			return;
@@ -164,6 +164,16 @@ public class BonificoVerticle extends AbstractVerticle {
 
 		log.info("Starting validation enquiry for transfer to creditor: {} (amount: {} {})", creditorName, amountStr, currency);
 
+		// Parse amount as BigDecimal for precise comparison
+		BigDecimal amount;
+		try {
+			amount = new BigDecimal(amountStr);
+		} catch (NumberFormatException e) {
+			log.error("Failed to parse amount for validation enquiry: {}", amountStr, e);
+			originalMessage.fail(ErrorCode.PARSE_ERROR.getCode(), "Invalid amount format: " + amountStr);
+			return;
+		}
+
 		// Use today's date for the search (money transfer should appear same day)
 		LocalDate today = LocalDate.now();
 		String todayStr = today.toString();
@@ -198,10 +208,10 @@ public class BonificoVerticle extends AbstractVerticle {
 						return;
 					}
 
-					// Search for matching transaction
+					// Search for matching transaction using BigDecimal for amount
 					ListaTransactionDto matchingTransaction = TransactionValidationUtil.findMatchingTransaction(
 							transactions,
-							amountStr, currency, description, creditorName);
+							amount, currency, description, creditorName);
 
 					if (matchingTransaction != null) {
 						log.info("Validation enquiry successful - transfer executed for creditor {} - Transaction ID: {}", creditorName, matchingTransaction.getTransactionId());

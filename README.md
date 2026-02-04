@@ -5,7 +5,14 @@ Siccome tra i requisiti non era richiesta un FE di esposizione del dato, ho pres
 
 L'applicazione si basa su SpringBoot + Vert-x rendeno l'applicazione reattiva
 
-Sono presenti dei test automatici e sono presenti anche test di integrazione
+Sono presenti **59 test unitari** (tutti passanti) e test di integrazione.
+
+I test unitari coprono:
+- Message parsing e URL parameter substitution
+- Transaction matching logic (validation enquiry)
+- Input validation per money transfers
+- DTO serialization/deserialization con BigDecimal
+- Verticle initialization e event bus subscription
 
 Per i test di integrazione occorre far partire l'applicazione:
     - mvn spring-boot:run -Dspring-boot.run.jvmArguments="-DapplicationPropertiesPath=file:/path/to/conto-demo/config-map/local/application.properties"
@@ -60,12 +67,27 @@ La confgigurazione si può trovare dentro al file data.sql che viene caricato al
  
 Ognuno di questi verticle richiama le API Fabrick
 N.B. Per BON (Create Money Transfer):
-- non è stato effettuato alcun controllo sui decimali sull'amount, ma al momento non so quanti decimali massimi si dovrebbero avere
+- **Validazione input**: Tutti gli input sono validati prima del processing
+  - Amount: tra 0.01 e 999999999.99 (usando BigDecimal per precisione)
+  - Currency: codice ISO 4217 (3 lettere maiuscole, es. EUR)
+  - Creditor name: obbligatorio, max 140 caratteri
+  - Description: obbligatorio, max 500 caratteri
 - l'executionDate l'ho impostato sempre a data odierna
-- alcuni campi nella request li ho messi come costanti, altri sono dinamici ed arrivano in input al server socket
-- ho inserito un timeout ampio di 110 ed ho inserito il controllo in caso di errore 500 / 504, dove effettuo una chiamata alla lista delle transazioni odierne per verificare se il bonifico è stato effettuato   
+- alcuni campi nella request sono definiti come costanti (es. REMITTANCE_INFORMATION_URI), altri sono dinamici ed arrivano in input al server socket
+- **Timeout**: 120 secondi (superiore ai 100 secondi raccomandati da Fabrick)
+- **Validation Enquiry**: In caso di errore 500/504, effettua una chiamata alla lista delle transazioni odierne per verificare se il bonifico è stato effettuato
+  - Cerca transazioni corrispondenti per amount, currency e description
+  - Restituisce messaggio appropriato: eseguito con transaction ID, non eseguito (retry sicuro), o incerto
+- **Error handling**: Codici di errore semantici (VALIDATION_ERROR, API_ERROR, TIMEOUT_ERROR, PARSE_ERROR, NETWORK_ERROR, CONFIGURATION_ERROR)   
  
- Le risposte sono sempre delle plain string ed iniziano sempre con 0 se è tutto corretto più l'eventuale messaggio, oppure con 1 se c'è stato un errore
- In caso di errore viene riportato in prima battuta l'UUID che identifica la richiesta, e poi il messaggio di errore (messaggio di errore ritornato dalle API di Fabrick o errore interno dell'applicazione).
- La decisione di mettere l'UUID è stata presa per visualizzare in maniera rapida i log 
+ Le risposte sono sempre delle plain string:
+- **0** + messaggio = successo
+- **1** + requestId + codice_errore + messaggio = errore
+
+In caso di errore viene riportato:
+1. L'UUID che identifica la richiesta (per facilitare la ricerca nei log)
+2. Il codice di errore semantico (VALIDATION_ERROR, API_ERROR, TIMEOUT_ERROR, PARSE_ERROR, NETWORK_ERROR, CONFIGURATION_ERROR)
+3. Il messaggio di errore (dalle API di Fabrick o errore interno dell'applicazione)
+
+La decisione di mettere l'UUID è stata presa per visualizzare in maniera rapida i log
   

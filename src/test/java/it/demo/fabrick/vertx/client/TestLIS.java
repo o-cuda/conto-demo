@@ -14,7 +14,7 @@ public class TestLIS {
 
 		try {
 			String sOut;
-			sOut = "LIS14537780            2019-01-012019-04-10END-OF-BUFFER";
+			sOut = "LIS2019-01-012019-04-10END-OF-BUFFER";
 
 			AbstractTestClient.sentRequestToAppContainer(host, port, sOut);
 

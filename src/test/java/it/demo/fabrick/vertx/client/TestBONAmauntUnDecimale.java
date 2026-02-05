@@ -15,7 +15,6 @@ public class TestBONAmauntUnDecimale {
 		try {
 			StringBuilder sOut = new StringBuilder();
 			sOut.append("BON");
-			sOut.append(padLeft("14537780", 20));
 			sOut.append(padLeft("John Doe", 50));
 			sOut.append("IT23A0336844430152923804660");
 			sOut.append("SELBIT2BXXX");

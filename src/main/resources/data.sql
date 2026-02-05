@@ -2,23 +2,23 @@
 --- **********     CONFIGURAZIONI                 **********
 --- ********************************************************
  
-INSERT INTO CONTO_CONFIGURATION (OPERATION, MESSAGE_IN, MESSAGE_OUT_BUS) 
+INSERT INTO CONTO_CONFIGURATION (OPERATION, MESSAGE_IN, MESSAGE_OUT_BUS)
 VALUES (
 	'SAL',
-	'OPERAZIONE=3;account-number=20;', 
+	'OPERAZIONE=3;',
 	'saldo_bus'
 );
 
-INSERT INTO CONTO_CONFIGURATION (OPERATION, MESSAGE_IN, MESSAGE_OUT_BUS) 
+INSERT INTO CONTO_CONFIGURATION (OPERATION, MESSAGE_IN, MESSAGE_OUT_BUS)
 VALUES (
 	'LIS',
-	'OPERAZIONE=3;account-number=20;start-date=10;end-date=10;', 
+	'OPERAZIONE=3;start-date=10;end-date=10;',
 	'lista_bus'
 );
 
-INSERT INTO CONTO_CONFIGURATION (OPERATION, MESSAGE_IN, MESSAGE_OUT_BUS) 
+INSERT INTO CONTO_CONFIGURATION (OPERATION, MESSAGE_IN, MESSAGE_OUT_BUS)
 VALUES (
-	'BON', 	'OPERAZIONE=3;account-number=20;creditor-name=50;accountCode=27;bicCode=11;description=500;amount=NUM20;currency=3;feeType=3;', 
+	'BON', 'OPERAZIONE=3;creditor-name=50;accountCode=27;bicCode=11;description=500;amount=NUM20;currency=3;feeType=3;',
 	'bonifico_bus'
 );
 

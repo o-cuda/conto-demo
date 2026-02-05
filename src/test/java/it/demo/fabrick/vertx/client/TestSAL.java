@@ -14,7 +14,7 @@ public class TestSAL {
 
 		try {
 			String sOut;
-			sOut = "SAL14537780            END-OF-BUFFER";
+			sOut = "SAL                   END-OF-BUFFER";
 
 			AbstractTestClient.sentRequestToAppContainer(host, port, sOut);
 
